@@ -115,7 +115,8 @@ class EmbodiedViewer(SimulationViewer):
             np.array(mesh.vertex_normals),
         )
         self.vector_renderer = VectorRenderer()
-        self.gaussian_texture = marsoom.Texture(640, 480, fmt=gl.GL_BGR)
+        # gsplat rasterization returns RGB; using GL_BGR swaps red and blue.
+        self.gaussian_texture = marsoom.Texture(640, 480, fmt=gl.GL_RGB)
         self.gaussian_overlay = marsoom.Overlay(self.gaussian_texture.id, alpha=1.0)  # type: ignore
         self.batch_cameras = pyglet.graphics.Batch()
         self.batch_virtual_cameras = pyglet.graphics.Batch()
