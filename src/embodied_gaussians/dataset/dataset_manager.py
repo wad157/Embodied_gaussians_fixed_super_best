@@ -10,6 +10,7 @@ from pydrake.trajectories import PiecewisePolynomial
 from typing_extensions import override
 
 from embodied_gaussians import Body, EmbodiedGaussiansEnvironment, FramesBuilder, EmbodiedGaussiansLoader, OfflineCameras
+from embodied_gaussians.utils.indexing import scalar_index
 
 
 @dataclass
@@ -158,6 +159,19 @@ class DatasetManager:
         for serial in cameras.keys():
             self.frames.update_colors(serial, timestamp, images[serial])
 
+    def keep_only_cameras(self, names: list[str]) -> None:
+        if self.offline_cameras is None:
+            raise RuntimeError("No offline cameras are loaded.")
+        requested = list(dict.fromkeys(names))
+        missing = [name for name in requested if name not in self.offline_cameras.cameras]
+        if missing:
+            raise KeyError(f"Unknown cameras: {missing}")
+        self.offline_cameras.cameras = {
+            name: self.offline_cameras.cameras[name] for name in requested
+        }
+        self.cameras = [camera for camera in self.cameras if camera.name in requested]
+        self.initialize_frames()
+
     @property
     def num_cameras(self) -> int:
         return len(self.cameras)
@@ -221,14 +235,14 @@ class DatasetManager:
     def panda_state(self, timestamp: float):
         res = {}
         for robot_name, r in self.robots.items():
-            index = int(r.state_index_look_up.value(timestamp))
+            index = scalar_index(r.state_index_look_up.value(timestamp), len(r.states))
             res[robot_name] = r.states[index]
         return res
 
     def controller_state(self, timestamp: float):
         res = {}
         for robot_name, r in self.robots.items():
-            index = int(r.control_index_look_up.value(timestamp))
+            index = scalar_index(r.control_index_look_up.value(timestamp), len(r.control))
             res[robot_name] = r.control[index]
         return res
 

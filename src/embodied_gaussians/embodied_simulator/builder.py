@@ -72,7 +72,6 @@ class EmbodiedGaussiansBuilder(ModelBuilder):
         X_WB = np.asarray(body.X_WB)
         quat = wp.quat_from_matrix(X_WB[:3, :3])
         trans = X_WB[:3, 3]
-        trans[2] = 0.1
         t = wp.transformf(*trans, *quat)
         b = self.add_body(origin=t)  # type: ignore
         self.bodies_affected_by_visual_forces.append(b)
@@ -133,6 +132,8 @@ class EmbodiedGaussiansBuilder(ModelBuilder):
         if add_gaussians:
             for i in range(start_shape_idx, end_shape_idx):
                 mesh: warp.sim.model.Mesh = self.shape_geo_src[i]
+                if mesh is None or mesh.vertices is None or len(mesh.vertices) == 0:
+                    continue  # skip non-mesh shapes (box, sphere, capsule primitives)
                 body_id = self.shape_body[i]
                 mesh_open3d = o3d.geometry.TriangleMesh()
                 mesh_open3d.vertices = o3d.utility.Vector3dVector(mesh.vertices)
@@ -141,10 +142,9 @@ class EmbodiedGaussiansBuilder(ModelBuilder):
                 )
                 area = mesh_open3d.get_surface_area()
                 points_per_unit_area = 10000
+                n_samples = max(1, int(area * points_per_unit_area))
                 points: o3d.geometry.PointCloud = (
-                    mesh_open3d.sample_points_poisson_disk(
-                        int(area * points_per_unit_area)
-                    )
+                    mesh_open3d.sample_points_poisson_disk(n_samples)
                 )
                 means = np.asarray(points.points)
                 num_points = len(points.points)

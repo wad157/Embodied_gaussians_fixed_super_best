@@ -5,6 +5,7 @@ import numpy as np
 import torch
 from torchcodec.decoders import VideoDecoder
 from pydrake.trajectories import PiecewisePolynomial
+from embodied_gaussians.utils.indexing import scalar_index
 
 
 class OfflineCamera:
@@ -36,7 +37,7 @@ class OfflineCamera:
         return self._X_WC
 
     def image(self, timestamp: float) -> torch.Tensor:
-        index = int(self.index_look_up.value(timestamp))
+        index = scalar_index(self.index_look_up.value(timestamp), self.num_frames)
         if index == self.last_index:
             assert self.last_image is not None
             return self.last_image

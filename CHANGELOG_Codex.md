@@ -10,6 +10,65 @@
 
 ## 当前已记录改动
 
+### 2026-07-07 Xvfb/noVNC demo 运行修复
+
+#### `src/embodied_gaussians/embodied_visualizer/embodied_viewer.py`
+
+- 新增 `_image_for_xvfb_texture(...)`：
+  - 对 `torch.Tensor` 相机图像先 `detach().cpu().numpy()`
+  - 统一转成 contiguous `uint8` numpy 图像
+  - 让 marsoom 走 `Texture.copy_from_host()`，避开 Xvfb 下不可用的 CUDA/OpenGL interop
+
+- `render_cameras()`：
+  - 保留 `CameraWireframeWithImage` 和相机贴图显示
+  - 把 `frames.colors_gpu[i]` 转成 CPU 图像后再 `camera.update_image(...)`
+  - 更新后调用 `camera.set_texture_id(camera.texture.id)`，避免 marsoom texture resize 后 ImageQuad 仍绑定旧 texture id
+
+- `render_virtual_camerawireframes()`：
+  - 同样保留虚拟相机 wireframe 和图像贴图
+  - 把 `cameras.rendered_images[j, i]` 转成 CPU 图像后上传
+  - 同步 ImageQuad 的 texture id
+
+作用：
+
+- 修复在服务器 `Xvfb :12 + x11vnc + noVNC` 下运行 demo 时，`glBindTexture(...)` 抛出 `GLException: Invalid operation` 的问题。
+- 这不是关闭 `draw_cameras` / `draw_virtual_cameras`，而是保留显示功能并把图像上传路径换成 Xvfb 可用的 CPU 上传。
+- `Warp CUDA error 304` 仍可能打印，这是 Xvfb 不支持 CUDA/OpenGL interop 的环境警告；当前相机图像路径已经不依赖这条 interop 路径。
+
+#### `src/embodied_gaussians/utils/indexing.py`
+
+- 新增 `scalar_index(value, upper_bound=None)`：
+  - 兼容 Drake `PiecewisePolynomial.value(...)` 返回数组而不是纯标量的情况
+  - 支持 clamp 到合法索引范围
+
+#### 索引调用点
+
+- `src/embodied_gaussians/embodied_simulator/offline_camera.py`
+- `src/embodied_gaussians/dataset/dataset_manager.py`
+- `src/embodied_gaussians/physics_simulator/loader.py`
+- `src/embodied_gaussians/embodied_simulator/loader.py`
+
+作用：
+
+- 修复 `TypeError: only 0-dimensional arrays can be converted to Python scalars`。
+
+#### 运行脚本
+
+- `scripts/start_display_browser.sh`
+  - 启动 `Xvfb :12`
+  - 启动 `x11vnc :5912`
+  - 启动 `websockify/noVNC :6082`
+
+- `scripts/run_demo_on_display.sh`
+  - 设置 conda env、CUDA include/lib、`DISPLAY=:12`
+  - 运行 `examples/example_embodied_pusht_offline.py`
+
+- `scripts/run_demo_browser_12.sh`
+  - 串联启动显示栈并运行 demo
+
+- `scripts/prewarm_gsplat.py`
+  - 用于提前触发 gsplat CUDA extension 编译/加载
+
 ### 0. `embodied_gaussians_fixed` 中的紧急修复
 
 #### `src/embodied_gaussians/embodied_simulator/simulator.py`

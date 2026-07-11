@@ -8,6 +8,7 @@ import warp.sim
 import zarr
 from pydrake.trajectories import PiecewisePolynomial
 from embodied_gaussians.utils.physics_utils import load_builder
+from embodied_gaussians.utils.indexing import scalar_index
 
 
 
@@ -66,7 +67,7 @@ class Loader:
         return root
 
     def get_state_at_timestampe(self, timestamp: float, device: str = "cuda"):
-        index = int(self.index_look_up.value(timestamp))
+        index = scalar_index(self.index_look_up.value(timestamp), self.num_steps)
         return self.get_state_at_index(index, device)
 
     def get_state_at_index(self, index: int, device: str = "cuda"):

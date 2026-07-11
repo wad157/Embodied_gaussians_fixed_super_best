@@ -24,6 +24,65 @@ from embodied_gaussians.environments.embodied_environment import (
 )
 
 
+def _set_calibrated_camera_image_geometry(
+    camera: marsoom.CameraWireframeWithImage,
+    K: np.ndarray,
+    width: int,
+    height: int,
+) -> None:
+    """Make the textured camera plane follow the four calibrated pixel rays."""
+    wireframe = camera.camera_wireframe
+    pixels = np.array(
+        [[0.0, 0.0, 1.0], [width, 0.0, 1.0], [width, height, 1.0], [0.0, height, 1.0]],
+        dtype=np.float32,
+    )
+    K_inv = np.linalg.inv(K).astype(np.float32)
+    rays = (K_inv @ pixels.T).T
+    rays[:, 1:] *= -1.0  # OpenCV camera axes to Blender camera axes.
+    rays *= wireframe.z_offset / np.abs(rays[:, 2:3])
+    top_left, top_right, bot_right, bot_left = rays.tolist()
+
+    wireframe.top_left = top_left
+    wireframe.top_right = top_right
+    wireframe.bot_right = bot_right
+    wireframe.bot_left = bot_left
+    axis_size = abs(top_right[0] - top_left[0]) * 0.1
+    wireframe.position = (
+        0.0,
+        0.0,
+        0.0,
+        *top_left,
+        *top_right,
+        *bot_right,
+        *bot_left,
+        0.0,
+        0.0,
+        0.0,
+        axis_size,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        axis_size,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        axis_size,
+    )
+    wireframe._update_vertices()
+    camera.image_quad.update(
+        top_left=top_left,
+        top_right=top_right,
+        bot_right=bot_right,
+        bot_left=bot_left,
+    )
+
+
 @dataclass
 class VisualizerSettings:
     draw_gaussian_meshes: bool = False
@@ -61,6 +120,7 @@ class EmbodiedViewer(SimulationViewer):
         self.batch_cameras = pyglet.graphics.Batch()
         self.batch_virtual_cameras = pyglet.graphics.Batch()
         self.last_selected_camera = 0
+        self.camera_go_zoom = 1.0
         self.settings = VisualizerSettings()
         self.env: EmbodiedGaussiansEnvironment | None = None
         self.cameras: dict[str, marsoom.CameraWireframeWithImage] = {}
@@ -307,6 +367,12 @@ class EmbodiedViewer(SimulationViewer):
                     alpha=self.settings.wireframe_alpha,
                     texture_fmt=gl.GL_BGR,
                 )
+                _set_calibrated_camera_image_geometry(
+                    self.cameras[name],
+                    frames.Ks_cpu[i].numpy(),
+                    frames.width,
+                    frames.height,
+                )
                 self.cameras[name].matrix = pyglet.math.Mat4(
                     *frames.X_WCs_cpu[i].T.flatten().numpy().tolist()
                 )
@@ -314,6 +380,7 @@ class EmbodiedViewer(SimulationViewer):
             camera = self.cameras[name]
             if camera.timestamp != frames.timestamps[i]:
                 camera.update_image(frames.colors_gpu[i])
+                camera.set_texture_id(camera.texture.id)  # sync after potential resize
                 camera.timestamp = frames.timestamps[i]
         self.batch_cameras.draw()
         gl.glEnable(gl.GL_DEPTH_TEST)
@@ -340,6 +407,12 @@ class EmbodiedViewer(SimulationViewer):
                         alpha=self.settings.wireframe_alpha,
                         texture_fmt=gl.GL_BGR,
                     )
+                    _set_calibrated_camera_image_geometry(
+                        self.virtual_cameras[camera_key],
+                        cameras.K_cpu[i].numpy(),
+                        cameras.width,
+                        cameras.height,
+                    )
                     self.virtual_cameras[camera_key].timestamp = -1.0
                 camera = self.virtual_cameras[camera_key]
                 X_WC = X_WCs[j, i]
@@ -348,6 +421,7 @@ class EmbodiedViewer(SimulationViewer):
                 camera.matrix = pyglet.math.Mat4(*X_WC.T.flatten().tolist())
                 if camera.timestamp != cameras.last_rendered_at:
                     camera.update_image(cameras.rendered_images[j, i])
+                    camera.set_texture_id(camera.texture.id)  # sync after potential resize
                     camera.timestamp = cameras.last_rendered_at
         self.batch_virtual_cameras.draw()
         gl.glEnable(gl.GL_DEPTH_TEST)
@@ -361,14 +435,27 @@ class EmbodiedViewer(SimulationViewer):
             return
         X_WC = frames.X_WCs_cpu[camera_number]
         K = frames.Ks_cpu[camera_number]
+        source_width = float(frames.width)
+        source_height = float(frames.height)
+        viewport_width = float(max(self.screen_width, 1))
+        viewport_height = float(max(self.screen_height, 1))
+        contain_scale = min(
+            viewport_width / source_width,
+            viewport_height / source_height,
+        )
+        scale = contain_scale * float(self.camera_go_zoom)
+        fitted_width = source_width * scale
+        fitted_height = source_height * scale
+        viewport_cx = 0.5 * (viewport_width - fitted_width) + float(K[0, 2]) * scale
+        viewport_cy = 0.5 * (viewport_height - fitted_height) + float(K[1, 2]) * scale
         self.go_to_view(
             x_wv=X_WC.numpy(),
-            fx=float(K[0, 0]),
-            fy=float(K[1, 1]),
-            cx=float(K[0, 2]),
-            cy=float(K[1, 2]),
-            h=frames.height,
-            w=frames.width,
+            fx=float(K[0, 0]) * scale,
+            fy=float(K[1, 1]) * scale,
+            cx=viewport_cx,
+            cy=viewport_cy,
+            h=int(viewport_height),
+            w=int(viewport_width),
         )
 
     def render_visual_forces(self):
@@ -488,6 +575,7 @@ class EmbodiedViewer(SimulationViewer):
                 self.ellipse_renderer.draw(3.0)
             if s.draw_gaussian_render:
                 self.gaussian_texture.copy_from_device(render_colors.squeeze(0))
+                self.gaussian_overlay.tex_id = self.gaussian_texture.id  # sync after potential resize
                 self.gaussian_overlay.draw()
 
     def render(self):
