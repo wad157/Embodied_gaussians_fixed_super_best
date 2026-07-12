@@ -84,7 +84,7 @@ class EmbodiedGaussiansEnvironment(Environment):
     def num_envs(self):
         return self.sim.num_envs
 
-    def step(self):
+    def step(self, compute_visual_forces: bool = True):
         self.sim.physics_step(self.physics_settings)
         self.sim.update_gaussian_transforms()
         if self.virtual_cameras is not None:
@@ -92,7 +92,7 @@ class EmbodiedGaussiansEnvironment(Environment):
                 self.time(),
                 wp.to_torch(self.sim.state_0.body_q).reshape(self.num_envs(), -1, 7),
             )
-        if self.frames is not None:
+        if compute_visual_forces and self.frames is not None:
             self.sim.compute_visual_forces(
                 self.visual_forces_settings,
                 self.frames,

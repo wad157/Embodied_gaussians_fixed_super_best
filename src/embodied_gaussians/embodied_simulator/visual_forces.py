@@ -23,6 +23,20 @@ class VisualForcesSettings:
     lr_scale: float = 0.0000
     # 把“高斯位姿偏差”转成“物理受力/力矩”时使用的比例系数。
     kp: float = 4.0
+    # OfflineCamera currently exposes BGR frames for OpenGL display, while
+    # gsplat renders RGB. Dataset adapters can enable this conversion for the
+    # photometric loss without changing the camera display path.
+    observations_are_bgr: bool = False
+    # A visual-force solve starts from the current physical pose every frame.
+    # Carrying Adam momentum across these independent solves can create drift.
+    reset_optimizer_each_step: bool = False
+    # Summed per-Gaussian forces otherwise scale with representation density.
+    normalize_forces_by_gaussian_count: bool = False
+    # Zero disables the corresponding safety clamp.
+    max_force: float = 0.0
+    max_moment: float = 0.0
+    # Positive values use Smooth L1 instead of unbounded pixel MSE.
+    robust_loss_beta: float = 0.0
 
 
 class VisualForces:
@@ -58,22 +72,14 @@ class VisualForces:
         self.means.requires_grad = True
         self.quats.requires_grad = True
 
-        # 不是所有 Gaussian 都一定允许被视觉力驱动。
-        # 这里先把“允许受视觉力影响的 body id 列表”转成 mask，
-        # 后面 step() 时会把其他 Gaussian 的梯度清零。
-        bodies_affected_by_visual_forces = (
-            torch.tensor(bodies_affected_by_visual_forces).int().cuda()
-        )
-        body_ids = gaussian_model.body_ids
-        # 找出哪些 Gaussian 属于“允许受视觉力影响”的刚体。
-        mask = torch.zeros_like(body_ids, dtype=torch.bool)
-        for b in bodies_affected_by_visual_forces:
-            mask = mask | (body_ids == b)
-        self._gaussians_not_involved_in_visual_forces = ~mask
-
         # 预计算“每个 body 在 Gaussian 数组中对应的连续段”，
         # 这样后面可以把 per-Gaussian 的力快速聚合成 per-body 的总力。
         self._initialize(gaussian_model.body_ids)
+        self._gaussian_body_ids = gaussian_model.body_ids
+        self.configure_body_participation(
+            gradient_body_ids=bodies_affected_by_visual_forces,
+            physics_force_body_ids=bodies_affected_by_visual_forces,
+        )
 
         # 这里不是标准 torch.optim.Adam，而是项目里包过的 Warp 版本 Adam。
         # 它直接吃 Warp/Torch 桥接后的向量数组，便于和后面的 kernel 配合。
@@ -85,6 +91,21 @@ class VisualForces:
             lrs=[0.01, 0.01],
         )
         self.gaussian_state = gaussian_state
+
+    def configure_body_participation(
+        self,
+        gradient_body_ids: list[int],
+        physics_force_body_ids: list[int],
+    ) -> None:
+        gradient_mask = torch.zeros_like(self._gaussian_body_ids, dtype=torch.bool)
+        for body_id in gradient_body_ids:
+            gradient_mask |= self._gaussian_body_ids == int(body_id)
+        self._gaussians_not_involved_in_visual_forces = ~gradient_mask
+
+        physics_mask = torch.zeros_like(self._body_ids, dtype=torch.bool)
+        for body_id in physics_force_body_ids:
+            physics_mask |= self._body_ids == int(body_id)
+        self._apply_physics_forces = physics_mask.to(dtype=torch.int32)
 
     def set_learnings_rates(self, lrs):
         # 每个 step 前根据 VisualForcesSettings 动态更新学习率。
@@ -130,6 +151,9 @@ class VisualForces:
         self._start_inds = start_inds[mask]
         self._end_inds = end_inds[mask]
         self._body_ids = bids[mask]
+        self._gaussian_counts = (self._end_inds - self._start_inds).to(
+            dtype=torch.int32
+        )
 
         self._num_bodies = len(self._start_inds)
 

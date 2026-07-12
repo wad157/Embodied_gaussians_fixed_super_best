@@ -69,8 +69,26 @@ def apply_forces_kernel(
     total_force: wp.array(dtype=wp.vec3f),  # type: ignore
     total_moment: wp.array(dtype=wp.vec3f),  # type: ignore
     body_ids: wp.array(dtype=wp.int32),  # type: ignore
+    gaussian_counts: wp.array(dtype=wp.int32),  # type: ignore
+    apply_physics_forces: wp.array(dtype=wp.int32),  # type: ignore
+    normalize_by_gaussian_count: int,
+    max_force: float,
+    max_moment: float,
     body_f: wp.array(dtype=wp.spatial_vectorf),  # type: ignore
 ):
     tid = wp.tid()
     bid = body_ids[tid]
-    body_f[bid] = wp.spatial_vector(total_moment[tid], total_force[tid])  # type: ignore
+    if apply_physics_forces[tid] != 0:
+        force = total_force[tid]
+        moment = total_moment[tid]
+        if normalize_by_gaussian_count != 0 and gaussian_counts[tid] > 0:
+            divisor = float(gaussian_counts[tid])
+            force = force / divisor
+            moment = moment / divisor
+        force_norm = wp.length(force)
+        if max_force > 0.0 and force_norm > max_force:
+            force = force * (max_force / force_norm)
+        moment_norm = wp.length(moment)
+        if max_moment > 0.0 and moment_norm > max_moment:
+            moment = moment * (max_moment / moment_norm)
+        body_f[bid] = wp.spatial_vector(moment, force)  # type: ignore

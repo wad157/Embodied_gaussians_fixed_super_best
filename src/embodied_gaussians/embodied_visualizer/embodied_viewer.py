@@ -96,7 +96,8 @@ class VisualizerSettings:
     draw_cameras: bool = True
     draw_virtual_cameras: bool = True
     gaussian_render_alpha: float = 1.0
-    visual_forces_scale: float = 1.0
+    visual_forces_scale: float = 25.0
+    visual_forces_pose_scale: float = 25.0
     near_plane: float = 0.01
     far_plane: float = 10.0
     wireframe_alpha: float = 0.5
@@ -190,10 +191,13 @@ class EmbodiedViewer(SimulationViewer):
             "Force Gaussian Meshes", s.draw_visual_forces_gaussians_meshes
         )
         _, s.visual_forces_scale = imgui.slider_float(
-            "Force Scale", s.visual_forces_scale, 0.0, 1.0
+            "Force Vector Scale", s.visual_forces_scale, 0.0, 100.0
         )
         if imgui.is_item_hovered():
             imgui.set_tooltip("Adjust the scale of force visualization")
+        _, s.visual_forces_pose_scale = imgui.slider_float(
+            "Force Pose Scale", s.visual_forces_pose_scale, 1.0, 100.0
+        )
 
         imgui.spacing()
         imgui.spacing()
@@ -488,22 +492,32 @@ class EmbodiedViewer(SimulationViewer):
             ids = torch.arange(
                 ss.visual_forces.means.shape[0], device=ss.visual_forces.means.device
             )
+        involved = ~ss.visual_forces._gaussians_not_involved_in_visual_forces
+        ids = ids[involved[ids]]
         if len(ids) == 0:
             return
 
         with torch.no_grad():
+            preview_positions = ss.gaussian_state.means[ids] + (
+                s.visual_forces_pose_scale
+                * (ss.visual_forces.means[ids] - ss.gaussian_state.means[ids])
+            )
+            force_colors = torch.zeros_like(ss.gaussian_state.colors[ids])
+            force_colors[:, 0] = 1.0
+            force_colors[:, 1] = 0.2
+            force_colors[:, 2] = 0.02
             if s.draw_visual_forces_gaussians_meshes:
                 self.mesh_ellipse_renderer.update(
-                    positions=ss.visual_forces.means[ids],
+                    positions=preview_positions,
                     rotations=ss.visual_forces.quats[ids],
                     scaling=ss.gaussian_state.scales[ids],
-                    colors=ss.gaussian_state.colors[ids],
+                    colors=force_colors,
                 )
                 self.mesh_ellipse_renderer.draw()
             if s.draw_visual_forces_gaussians_outlines:
                 self.ellipse_renderer.update(
                     positions=ss.visual_forces.means[ids],
-                    colors=ss.gaussian_state.colors[ids],
+                    colors=force_colors,
                     opacity=ss.gaussian_state.opacities[ids].unsqueeze(1),
                     conics=meta["conics"].reshape(-1, 3),
                 )

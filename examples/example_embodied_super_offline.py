@@ -28,7 +28,6 @@ from embodied_environments.super_embodied.super_embodied import (  # noqa: E402
     urdf_actuated_joint_order,
 )
 from embodied_gaussians import DatasetManager, EmbodiedGaussiansEnvironment  # noqa: E402
-from embodied_gaussians.utils.indexing import scalar_index  # noqa: E402
 
 
 def parse_args() -> argparse.Namespace:
@@ -63,7 +62,7 @@ def parse_args() -> argparse.Namespace:
         "--visual-force-iterations",
         type=int,
         default=0,
-        help="visual forces 每步优化迭代次数。初次 GUI 接入默认关闭。",
+        help="tissue visual forces 每次更新的图像优化迭代数；PSM 始终不参与。",
     )
     parser.add_argument(
         "--cameras",
@@ -77,7 +76,7 @@ def parse_args() -> argparse.Namespace:
         default=0.9,
         help=(
             "Go To Camera 视角缩放系数。1.0 表示保持纵横比并完整包含相机画面；"
-            "默认 0.9，在完整画面外额外保留约 10% 边距。"
+            "默认 0.9，在完整画面外额外保留约 10%% 边距。"
         ),
     )
     parser.add_argument(
@@ -127,22 +126,40 @@ class SuperPlaybackControls:
         monitor_interval: float = 0.5,
         psm_roll_offset_deg: float = 0.0,
     ):
-        self.current_timestep = 0.0
         self.playing = False
         self.environment = environment
         self.dataset_manager = dataset_manager
         self.fps = fps
+        offline_cameras = self.dataset_manager.offline_cameras
+        if offline_cameras is None or len(offline_cameras) == 0:
+            raise RuntimeError("SUPER exact-timestamp playback requires a camera")
+        self.playback_camera_name, playback_camera = next(
+            iter(offline_cameras.items())
+        )
+        self.playback_timestamps = np.asarray(
+            playback_camera.timestamps, dtype=np.float64
+        )
+        if len(self.playback_timestamps) == 0:
+            raise RuntimeError("SUPER playback camera has no timestamps")
+        if np.any(np.diff(self.playback_timestamps) <= 0.0):
+            raise ValueError("SUPER playback camera timestamps must increase")
+        self.current_frame_index = 0
+        self.current_timestep = float(self.playback_timestamps[0])
         self.first_state = environment.sim.clone_embodied_gaussian_state()
         self.monitor_psm_base_q = monitor_psm_base_q
         self.monitor_tissue_q = monitor_tissue_q
         self.monitor_interval = monitor_interval
         self.psm_roll_offset_deg = float(psm_roll_offset_deg)
+        self.psm_jaw_offset_deg = 0.0
         self._last_base_monitor_time = -float("inf")
         self._last_tissue_monitor_time = -float("inf")
         self._initial_base_q: np.ndarray | None = None
         self._initial_tissue_q: np.ndarray | None = None
         self._warned_missing_base_id = False
         self._warned_missing_tissue_id = False
+        self.psm_manual_camera_translation_mm = np.zeros(3, dtype=np.float64)
+        self.visual_force_update_interval = 3
+        self._visual_force_step = 0
 
         # mimic_cfg records how 7 active joints derive mimic joints.
         # joint_order records the joint order expected by the simulator.
@@ -150,46 +167,87 @@ class SuperPlaybackControls:
         self.joint_order = urdf_actuated_joint_order(
             repo_root / "data/super/psm_robot/psm.urdf"
         )
-        self.roll_joint_index = self.joint_order.index("roll")
         # PSM is fully driven by offline q, needs re-anchoring after each physics step.
         # _last_q_full stores the most recent q from go_to_timestep,
         # so run_physics can pull PSM back to the correct pose after each step.
-        self._last_q_full: torch.Tensor = self.q_full_at(0.0)
-        self._last_state_index = self.state_index_at(0.0)
+        self._last_q_full: torch.Tensor = self.q_full_at(self.current_timestep)
+        self._last_state_index = self.state_index_at(self.current_timestep)
 
     def state_index_at(self, timestep: float) -> int:
         robot_data = self.dataset_manager.robots["PSM1"]
-        return scalar_index(
-            robot_data.state_index_look_up.value(timestep), len(robot_data.states)
+        state_index = int(
+            np.searchsorted(
+                robot_data.states_timestamps, timestep, side="right"
+            )
+            - 1
         )
+        return max(0, min(state_index, len(robot_data.states) - 1))
 
     def q_full_at(self, timestep: float) -> torch.Tensor:
         robot_data = self.dataset_manager.robots["PSM1"]
-        # DatasetManager / OfflineCamera 都使用 scalar_index 处理 Drake lookup
-        # 返回数组的问题。这里同样用它取 robots.json 的离线状态索引。
+        # Use the latest robot sample whose timestamp is not after the exact
+        # camera-frame timestamp.
         state_index = self.state_index_at(timestep)
-        q7 = robot_data.states[state_index]["q"]
+        q7 = np.asarray(robot_data.states[state_index]["q"], dtype=np.float64)
+        q7 = q7 + self.manual_psm_joint_offsets()
         q_full = expand_psm_q7_to_urdf_order(
             q7,
             mimic_cfg=self.mimic_cfg,
             joint_order=self.joint_order,
         )
-        # 手动 roll 偏移：roll 是器械绕长杆轴线的自旋自由度。
-        # 这个 offset 只加在运行时的 q_full 上，不写回 robots.json。
-        q_full[self.roll_joint_index] += np.deg2rad(self.psm_roll_offset_deg)
         return torch.from_numpy(q_full).float()
 
+    def manual_psm_joint_offsets(self) -> np.ndarray:
+        offsets = np.zeros(7, dtype=np.float64)
+        offsets[3] = np.deg2rad(self.psm_roll_offset_deg)
+        offsets[6] = np.deg2rad(self.psm_jaw_offset_deg)
+        return offsets
+
+    def manual_psm_translation_world(self) -> np.ndarray:
+        if self.environment.frames is None:
+            return np.zeros(3, dtype=np.float64)
+        X_CW = (
+            self.environment.frames.X_CWs_opencv_gpu[0]
+            .detach()
+            .cpu()
+            .numpy()
+        )
+        translation_camera = self.psm_manual_camera_translation_mm / 1000.0
+        return X_CW[:3, :3].T @ translation_camera
+
     def reset(self):
-        self.current_timestep = 0.0
+        self.psm_manual_camera_translation_mm.fill(0.0)
+        self.current_frame_index = 0
+        self.current_timestep = float(self.playback_timestamps[0])
+        self.playing = False
+        self._visual_force_step = 0
         self.environment.sim.copy_embodied_gaussian_state(self.first_state)
         self.environment.sim.eval_ik()
-        self.go_to_timestep(0.0)
+        self.go_to_frame(0)
         self._initial_base_q = self.current_psm_base_q()
         self._initial_tissue_q = self.current_tissue_q()
         self._last_base_monitor_time = -float("inf")
         self._last_tissue_monitor_time = -float("inf")
         self.maybe_print_psm_base_q(force=True)
         self.maybe_print_tissue_q(force=True)
+
+    def go_to_frame(self, frame_index: int):
+        self.current_frame_index = max(
+            0, min(int(frame_index), len(self.playback_timestamps) - 1)
+        )
+        self.go_to_timestep(
+            float(self.playback_timestamps[self.current_frame_index])
+        )
+
+    def advance_one_frame(self) -> bool:
+        next_frame_index = self.current_frame_index + 1
+        if next_frame_index >= len(self.playback_timestamps):
+            self.playing = False
+            return False
+        self.go_to_frame(next_frame_index)
+        if self.current_frame_index == len(self.playback_timestamps) - 1:
+            self.playing = False
+        return True
 
     def go_to_timestep(self, timestep: float):
         self.current_timestep = timestep
@@ -201,7 +259,12 @@ class SuperPlaybackControls:
         self.environment.set_robot_desired_q(PSM_ARTICULATION_INDEX, q_full)
         self._last_q_full = q_full
         self._last_state_index = self.state_index_at(timestep)
-        apply_psm_lnd_pose(self.environment, self._last_state_index)
+        apply_psm_lnd_pose(
+            self.environment,
+            self._last_state_index,
+            joint_offsets=self.manual_psm_joint_offsets(),
+            translation_offset=self.manual_psm_translation_world(),
+        )
         self.dataset_manager.update_frames(timestep)
 
     def psm_base_body_id(self) -> int | None:
@@ -330,10 +393,16 @@ class SuperPlaybackControls:
         # 操作在无显示环境里也能正常运行。
         from marsoom import imgui
 
+        imgui.set_next_window_size_constraints((560, 360), (900, 700))
         imgui.begin("SUPER Playback")
-        imgui.text(f"Current timestep: {self.current_timestep:.2f}")
+        imgui.text(
+            f"Frame: {self.current_frame_index + 1}/{len(self.playback_timestamps)}"
+        )
+        imgui.text(
+            f"{self.playback_camera_name} timestamp: {self.current_timestep:.6f}s"
+        )
         imgui.text(f"Playing: {self.playing}")
-        _, self.fps = imgui.slider_int("FPS", self.fps, 1, 120)
+        _, self.fps = imgui.slider_int("Playback FPS", self.fps, 1, 120)
         changed_roll, roll_offset_deg = imgui.slider_float(
             "PSM roll offset deg",
             self.psm_roll_offset_deg,
@@ -343,7 +412,58 @@ class SuperPlaybackControls:
         if changed_roll:
             self.psm_roll_offset_deg = float(roll_offset_deg)
             self.go_to_timestep(self.current_timestep)
+        changed_jaw, jaw_offset_deg = imgui.slider_float(
+            "PSM jaw offset deg",
+            self.psm_jaw_offset_deg,
+            -30.0,
+            30.0,
+        )
+        if changed_jaw:
+            self.psm_jaw_offset_deg = float(jaw_offset_deg)
+            self.go_to_timestep(self.current_timestep)
+        manual_translation_changed = False
+        changed_manual_x, manual_x_mm = imgui.slider_float(
+            "Manual image X mm (+right)",
+            float(self.psm_manual_camera_translation_mm[0]),
+            -5.0,
+            5.0,
+        )
+        if changed_manual_x:
+            self.psm_manual_camera_translation_mm[0] = manual_x_mm
+            manual_translation_changed = True
+        changed_manual_y, manual_y_mm = imgui.slider_float(
+            "Manual image Y mm (+down)",
+            float(self.psm_manual_camera_translation_mm[1]),
+            -5.0,
+            5.0,
+        )
+        if changed_manual_y:
+            self.psm_manual_camera_translation_mm[1] = manual_y_mm
+            manual_translation_changed = True
+        changed_manual_z, manual_z_mm = imgui.slider_float(
+            "Manual camera Z mm (+far)",
+            float(self.psm_manual_camera_translation_mm[2]),
+            -30.0,
+            30.0,
+        )
+        if changed_manual_z:
+            self.psm_manual_camera_translation_mm[2] = manual_z_mm
+            manual_translation_changed = True
+        if manual_translation_changed:
+            self.go_to_timestep(self.current_timestep)
+        total_translation_mm = self.manual_psm_translation_world() * 1000.0
+        imgui.text(
+            "Manual world translation mm: "
+            f"x={total_translation_mm[0]:+.3f}, "
+            f"y={total_translation_mm[1]:+.3f}, "
+            f"z={total_translation_mm[2]:+.3f}"
+        )
+        if imgui.button("Reset manual translation"):
+            self.psm_manual_camera_translation_mm.fill(0.0)
+            self.go_to_timestep(self.current_timestep)
         if imgui.button("Play"):
+            if self.current_frame_index >= len(self.playback_timestamps) - 1:
+                self.go_to_frame(0)
             self.playing = True
         imgui.same_line()
         if imgui.button("Pause"):
@@ -356,14 +476,32 @@ class SuperPlaybackControls:
     async def run_physics(self):
         dt = self.environment.dt()
         while True:
-            self.environment.step()
-            # PSM 完全由离线 q 驱动，不参与真实物理。每步物理后重新锚定
-            # PSM 关节和 body 到最近一次 go_to_timestep 设定的位置，
-            # 防止 XPBD 数值误差累积导致 PSM base 漂移甚至 NaN。
+            # XPBD eval_ik restores articulation FK, so reapply the strict
+            # timestamp-aligned LND pose after every physics step.
+            self.environment.step(compute_visual_forces=False)
+            self._last_q_full = self.q_full_at(self.current_timestep)
             self.environment.set_robot_q(PSM_ARTICULATION_INDEX, self._last_q_full)
-            # LND modified-DH poses drive the visible tool links. The dVRK
-            # articulation remains as the body/mesh carrier only.
-            apply_psm_lnd_pose(self.environment, self._last_state_index)
+            self.environment.set_robot_desired_q(
+                PSM_ARTICULATION_INDEX, self._last_q_full
+            )
+            apply_psm_lnd_pose(
+                self.environment,
+                self._last_state_index,
+                joint_offsets=self.manual_psm_joint_offsets(),
+                translation_offset=self.manual_psm_translation_world(),
+            )
+            self._visual_force_step += 1
+            if (
+                self._visual_force_step % self.visual_force_update_interval == 0
+                and self.environment.frames is not None
+                and self.environment.visual_forces_settings.iterations > 0
+            ):
+                self.environment.sim.compute_visual_forces(
+                    self.environment.visual_forces_settings,
+                    self.environment.frames,
+                    self.environment.physics_settings.dt
+                    / self.environment.physics_settings.substeps,
+                )
             self.maybe_print_psm_base_q()
             self.maybe_print_tissue_q()
             await trio.sleep(dt)
@@ -373,8 +511,7 @@ class SuperPlaybackControls:
             nursery.start_soon(self.run_physics)
             while True:
                 if self.playing:
-                    self.current_timestep += 1 / self.fps
-                    self.go_to_timestep(self.current_timestep)
+                    self.advance_one_frame()
                 await trio.sleep(1 / self.fps)
 
 
@@ -394,8 +531,16 @@ async def main(
     environment = build_environment()
     environment.visual_forces_settings.iterations = visual_force_iterations
     print(
-        "[example_embodied_super_offline] visual_force_iterations="
-        f"{environment.visual_forces_settings.iterations}"
+        "[example_embodied_super_offline] tissue_visual_force_iterations="
+        f"{visual_force_iterations}; PSM visual forces disabled"
+    )
+    visual_settings = environment.visual_forces_settings
+    print(
+        "[example_embodied_super_offline] tissue_visual_force_safety="
+        f"lr_means={visual_settings.lr_means}, kp={visual_settings.kp}, "
+        f"normalized={visual_settings.normalize_forces_by_gaussian_count}, "
+        f"max_force={visual_settings.max_force}N, "
+        f"max_moment={visual_settings.max_moment}Nm"
     )
 
     dataset_manager = DatasetManager(dataset_path)

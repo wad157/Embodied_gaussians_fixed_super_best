@@ -76,6 +76,46 @@ cd /Media_HDD/jwshan/wad/Embodied_gaussians_fixed_super_best
 /Media_HDD/jwshan/conda_envs/eg_codex/bin/python scripts/build_psm_surface_gaussians.py
 ```
 
+## SUPER tissue 视觉力稳定性（2026-07-11，2026-07-12 更新）
+
+| 项目 | 状态 | 结论/产出 |
+|---|---|---|
+| Interaction 1 拉飞根因 | ✅ | tissue 是质量约 `0.01484 kg` 的单刚体，绑定 2490 个 Gaussian。旧实现单步 Adam 令每个 Gaussian 位移约 `2.598 mm`，随后直接求和为约 `1.21 N`、`0.025 Nm`，对应约 `82 m/s^2` 加速度。 |
+| 颜色损失通道 | ✅ | 离线观测为 BGR、gsplat 为 RGB；SUPER visual-force loss 现先将观测 BGR 转为 RGB，避免颜色误差被错误解释为几何位移。 |
+| 优化器状态 | ✅ | 每个 physics step 都从当前 Gaussian 位姿开始独立求解，因此 SUPER 现同步重置 Adam 一、二阶动量，防止跨帧累计漂移。 |
+| 力的密度归一化 | ✅ | SUPER 按每个 body 的 Gaussian 数量归一化聚合力和力矩，使受力不再随 Gaussian 采样密度线性增长。 |
+| 安全参数 | ✅ | `lr_means=0.0001`、`lr_quats=0.0001`、`kp=1.0`、Smooth L1 `beta=0.05`、总力上限 `0.005 N`、总力矩上限 `5e-5 Nm`。 |
+| 修复后单步 CUDA 验证 | ✅ | Interaction 1 下 Gaussian 位移 P50/P95/max 均约 `0.1732 mm`；实际 tissue 总力 `4.97e-6 N`、加速度 `3.35e-4 m/s^2`、力矩 `1.35e-7 Nm`。 |
+| 120 步稳定性对照 | ✅ | Interaction 1 相对 Interaction 0 的附加平移仅约 `[-3.3e-6, -5.6e-6, 0] mm`，最终线速度和角速度均为 0。 |
+| 当前参与范围 | ✅ | 仅 tissue 的 2490 个 Gaussian 和 tissue body 参与 visual force；1508 个 PSM Gaussian 参与数为 0、实测最大视觉位移为 `0 mm`。PSM 自动视觉平移/refiner 已删除。 |
+
+直接以 Interaction 1 启动：
+
+```bash
+cd /Media_HDD/jwshan/wad/Embodied_gaussians_fixed_super_best
+bash scripts/run_demo_browser_12.sh --visual-force-iterations 1
+```
+
+## PSM 颜色、手动修正与精确回放（2026-07-12）
+
+| 项目 | 状态 | 结论/产出 |
+|---|---|---|
+| 单色根因 | ✅ | 旧 `build_psm_surface_gaussians.py` 将全部 1508 个器械 Gaussian 固定为 `[0.65,0.67,0.70]`，没有使用视频颜色。 |
+| 多帧颜色烘焙 | ✅ | 新增 `bake_super_psm_gaussian_colors.py`，使用 12 个左目时刻和 strict LND pose 投影；357 个 Gaussian 直接观测、1151 个在同 link 局部传播，并保留 25 个蓝色标记点。最终 RGB std 约 `0.069-0.078`。 |
+| 颜色预览 | ✅ | `data/super/psm_robot/psm_color_bake_frame0_overlay.png`；银色亮暗和蓝色标记已不再是一片平灰。 |
+| Runtime LND FK | ✅ | `psm_lnd_kinematics.py` 负责 `q_dataset + q_manual_roll + q_manual_jaw`；零 correction 相比原 pose-driver 最大位置差 `1.9e-5 mm`、姿态差 `6.1e-6 deg`。PSM 不参与视觉力。 |
+| GUI 手动平移 | ✅ | `Manual image X/Y` 范围 `[-5,5] mm`，`Manual camera Z` 扩大为 `[-30,30] mm`；相机向量经 `R_CW^T` 转成 world 平移并统一施加到 7 个可见 PSM link。 |
+| GUI jaw 对称开合 | ✅ | 删除 `Wrist group camera X/Y/Z deg` 及对应远端刚体旋转路径；新增 `PSM jaw offset deg`，范围 `[-30,30] deg`，叠加到数据集 q7 jaw。mimic 保持 `jaw_mimic_1=+0.5*jaw`、`jaw_mimic_2=-0.5*jaw`。offset `+10 deg` 实测两个夹爪分别旋转 `+5/-5 deg`，其余 link 和整体平移不变。 |
+| 精确时间戳播放 | ✅ | 以左目 1441 条 metadata timestamps 逐帧驱动视频与机器人，FPS 只控制播放速度。首/末时间戳为 `0.029093239/48.161777496 s`；末帧实际解码 index 1440，并立即自动暂停，不再让机器人继续到 `54.9896 s`。 |
+| 视频/机器人索引 | ✅ | 视频和机器人统一使用 `searchsorted(..., side="right")-1` 的零阶保持规则；末帧选中机器人状态 `48.159168243 s <= 48.161777496 s`。 |
+
+重新烘焙颜色：
+
+```bash
+cd /Media_HDD/jwshan/wad/Embodied_gaussians_fixed_super_best
+/Media_HDD/jwshan/conda_envs/eg_codex/bin/python scripts/bake_super_psm_gaussian_colors.py
+```
+
 ## PSM 器械多帧位姿适配（2026-07-11）
 
 | 项目 | 状态 | 结论/产出 |

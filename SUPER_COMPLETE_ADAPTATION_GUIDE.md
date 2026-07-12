@@ -390,9 +390,27 @@ PSM 是运动学回放对象，当前关闭：
 
 这样可以先验证几何和位姿，不让初始穿透导致 PSM/tissue 飞散。tissue 自身仍保留物理粒子和 ground plane 接触。
 
+### 7.8 SUPER tissue 视觉力稳定化
+
+tissue 当前是一个由 1050 个碰撞球构成的单刚体，质量约 `0.01484 kg`，其 2490 个视觉 Gaussian 都绑定到同一个 body。原始 visual-force 实现把每个 Gaussian 的位移力直接求和，因此总力随 Gaussian 密度线性增长；Interaction 1 曾产生约 `1.21 N` 和 `0.025 Nm`，足以把组织拉飞。
+
+SUPER 运行时使用数据集专用的安全配置：观测 BGR 在 photometric loss 前转换为 RGB；每步重置局部 Adam 动量；按 body 的 Gaussian 数量归一化力和力矩；使用 Smooth L1；并限制总力为 `0.005 N`、总力矩为 `5e-5 Nm`。单步位置学习率为 `0.0001`，旋转学习率为 `0.0001`，`kp=1.0`。当前参与范围严格限制为 tissue：2490 个 tissue Gaussian 继续产生 visual force；1508 个 PSM Gaussian 和全部 PSM body 均被排除。CUDA 实测 PSM Gaussian 最大视觉位移为 `0 mm`。
+
+### 7.9 PSM 颜色与手动位姿修正
+
+器械 Gaussian 不再使用统一灰色。`bake_super_psm_gaussian_colors.py` 将 link-local Gaussian 按 strict LND pose 投影到 12 个真实左目时刻，对直接观测颜色取多帧中位数，并在同一 link 内传播到未观测表面；暖色组织背景被剔除，普通表面转为带亮暗变化的中性金属色，明显蓝色标记保留。
+
+PSM 不接受 visual Gaussian 梯度或 visual `body_f`，也不再包含自动视觉平移/refiner。机械臂每步严格按当前相机时间戳读取 `q_dataset`，叠加 GUI manual roll 和 manual jaw 后执行 LND FK；相机坐标手动平移最后统一施加到 7 个可见 link，不改变 link 间相对姿态。
+
+GUI 相机坐标微调中，`Manual image X/Y` 范围为 `[-5,5] mm`，`Manual camera Z mm (+far)` 扩大为 `[-30,30] mm`。相机平移通过左目 `R_CW^T` 转为 world 向量，不需要猜测 table/world 轴。Z 取 `+30/-30 mm` 时，转换后的 world 向量范数实测均为 `30 mm`。
+
+GUI 使用 `PSM jaw offset deg` 调整夹爪对称开合，不再提供 `Wrist group camera X/Y/Z deg`。jaw offset 范围为 `[-30,30] deg`，直接叠加到数据集 q7 的 jaw 分量，再由原 mimic 关系展开为 `jaw_mimic_1=+0.5*jaw` 和 `jaw_mimic_2=-0.5*jaw`。因此 offset `+10 deg` 会使两个可见夹爪分别旋转 `+5 deg` 和 `-5 deg`，不会改变 wrist、shaft、器械整体平移或 GUI manual roll。该范围与原始 jaw 数据 `-27.7..57.4 deg` 叠加后仍处于 URDF 主 jaw 的 `-68.8..91.7 deg` 限制内。
+
 ## 8. GUI 相机与离线回放
 
 GUI 只启用 `stereo_left`。视频首帧与 rectified PNG 的相位位移约 `0.002 px`，可排除视频编码导致的画面平移。
+
+回放不再用固定 `1/FPS` 生成数据时间。控制器逐帧读取左目 metadata 的 1441 条原始 timestamps，并用同一个时间戳查询视频和机器人零阶保持状态；GUI 的 Playback FPS 只控制墙钟播放速度。视频与机器人索引均使用 `searchsorted(..., side="right")-1`，首/末时间戳为 `0.029093239/48.161777496 s`。到达末帧 index 1440 时立即自动 Pause，机器人保持在 `48.159168243 s` 的最近状态，不再越过视频末尾继续运动到 robots.json 的 `54.9896 s`。
 
 原 `marsoom.CameraWireframe` 对偏心主点错误构造纹理四角；当前 viewer 使用真实 `K^-1` 计算四个像素角射线，并把它们放到同一个成像平面。`Go To Camera` 按 GUI viewport 对 K 做保持纵横比的 contain 缩放，默认 `camera_go_zoom=0.9`。
 

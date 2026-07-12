@@ -18,6 +18,8 @@ from embodied_gaussians import (
     read_ground,
 )
 
+from .psm_lnd_kinematics import PSMLNDKinematics
+
 current_dir = Path(__file__).resolve().parent
 repo_root = current_dir.parents[2]
 
@@ -31,6 +33,12 @@ PSM_SURFACE_GAUSSIANS_PATH = (
     repo_root / "data/super/psm_robot/psm_surface_gaussians.npz"
 )
 PSM_LND_POSE_DRIVER_PATH = repo_root / "data/super/psm_robot/psm_lnd_pose_driver.npz"
+PSM_LND_POSE_REPORT_PATH = (
+    repo_root / "data/super/psm_robot/psm_lnd_pose_driver_report.json"
+)
+PSM_LND_MODEL_PATH = (
+    repo_root / "data/super/grasp5_offline_demo/instruments/psm1_lnd_model.json"
+)
 TABLE_FRAME_PATH = repo_root / "data/super/table_frame.json"
 SUPER_DATASET_PATH = repo_root / "data/super/grasp5_offline_demo"
 ROBOTS_PATH = SUPER_DATASET_PATH / "robots.json"
@@ -58,6 +66,15 @@ PSM_WARP_JOINT_Q_ORDER = [
 TISSUE_GAUSSIAN_SCALE = 1.0
 GROUND_GAUSSIAN_SCALE = 1.0
 TISSUE_PBD_RADIUS_SCALE = 1.0
+
+# SUPER uses a single 14.8 g rigid tissue body represented by 2490 visual
+# Gaussians. Visual forces must be independent of that sampling density.
+SUPER_VISUAL_FORCE_LR_MEANS = 0.0001
+SUPER_VISUAL_FORCE_LR_QUATS = 0.0001
+SUPER_VISUAL_FORCE_KP = 1.0
+SUPER_VISUAL_FORCE_MAX_FORCE_N = 0.005
+SUPER_VISUAL_FORCE_MAX_MOMENT_NM = 0.00005
+SUPER_VISUAL_FORCE_ROBUST_LOSS_BETA = 0.05
 
 PSM_ARTICULATION_INDEX = 0
 
@@ -246,12 +263,30 @@ def load_psm_lnd_pose_driver(
 def apply_psm_lnd_pose(
     env: EmbodiedGaussiansEnvironment,
     state_index: int,
+    joint_offsets: np.ndarray | None = None,
+    translation_offset: np.ndarray | None = None,
     update_gaussians: bool = True,
 ) -> None:
     poses = env.super_psm_lnd_poses_table  # type: ignore[attr-defined]
     body_ids_by_env = env.super_psm_lnd_body_ids  # type: ignore[attr-defined]
     state_index = max(0, min(int(state_index), len(poses) - 1))
-    pose_tensor = torch.as_tensor(poses[state_index], dtype=torch.float32)
+    if joint_offsets is None or np.allclose(joint_offsets, 0.0):
+        selected_poses = poses[state_index].copy()
+    else:
+        offsets = np.asarray(joint_offsets, dtype=np.float64)
+        if offsets.shape != (7,):
+            raise ValueError(f"Expected PSM joint_offsets shape (7,), got {offsets.shape}")
+        q7 = env.super_psm_q7_states[state_index] + offsets  # type: ignore[attr-defined]
+        selected_poses = env.super_psm_lnd_kinematics.visual_poses_table(q7)  # type: ignore[attr-defined]
+    if translation_offset is not None:
+        translation = np.asarray(translation_offset, dtype=np.float64)
+        if translation.shape != (3,):
+            raise ValueError(
+                f"Expected PSM translation_offset shape (3,), got {translation.shape}"
+            )
+        selected_poses = selected_poses.copy()
+        selected_poses[:, :3] += translation[None, :]
+    pose_tensor = torch.as_tensor(selected_poses, dtype=torch.float32)
     for body_ids in body_ids_by_env:
         for state in (env.sim.state_0, env.sim.state_1):
             body_q = warp.to_torch(state.body_q)
@@ -385,6 +420,36 @@ def build_environment(
     env.super_psm_lnd_link_names = lnd_link_names  # type: ignore[attr-defined]
     env.super_psm_lnd_poses_table = lnd_poses_table  # type: ignore[attr-defined]
     env.super_psm_lnd_body_ids = psm_lnd_body_ids  # type: ignore[attr-defined]
+    with open(ROBOTS_PATH, "r") as file:
+        robot_data = json.load(file)["PSM1"]
+    q7_states = np.asarray(
+        [state["q"] for state in robot_data["states"]], dtype=np.float64
+    )
+    if len(q7_states) != len(lnd_timestamps):
+        raise ValueError(
+            f"PSM q7/pose-driver length mismatch: {len(q7_states)} != {len(lnd_timestamps)}"
+        )
+    env.super_psm_q7_states = q7_states  # type: ignore[attr-defined]
+    env.super_psm_lnd_kinematics = PSMLNDKinematics.from_files(  # type: ignore[attr-defined]
+        PSM_LND_MODEL_PATH,
+        PSM_LND_POSE_REPORT_PATH,
+        TABLE_FRAME_PATH,
+        lnd_link_names,
+    )
+    env.sim.visual_forces.configure_body_participation(
+        gradient_body_ids=tissue_body_ids,
+        physics_force_body_ids=tissue_body_ids,
+    )
+    visual_settings = env.visual_forces_settings
+    visual_settings.lr_means = SUPER_VISUAL_FORCE_LR_MEANS
+    visual_settings.lr_quats = SUPER_VISUAL_FORCE_LR_QUATS
+    visual_settings.kp = SUPER_VISUAL_FORCE_KP
+    visual_settings.observations_are_bgr = True
+    visual_settings.reset_optimizer_each_step = True
+    visual_settings.normalize_forces_by_gaussian_count = True
+    visual_settings.max_force = SUPER_VISUAL_FORCE_MAX_FORCE_N
+    visual_settings.max_moment = SUPER_VISUAL_FORCE_MAX_MOMENT_NM
+    visual_settings.robust_loss_beta = SUPER_VISUAL_FORCE_ROBUST_LOSS_BETA
     apply_psm_lnd_pose(env, 0)
     env.stash_state()
     return env

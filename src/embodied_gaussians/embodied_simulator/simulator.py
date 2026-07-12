@@ -200,7 +200,8 @@ class EmbodiedGaussiansSimulator(Simulator):
             self.visual_forces.means.copy_(self.gaussian_state.means)
             self.visual_forces.quats.copy_(self.gaussian_state.quats)
 
-        # self.visual_forces.optimizer.reset_internal_state()
+        if settings.reset_optimizer_each_step:
+            self.visual_forces.optimizer.reset_internal_state()
         self.visual_forces.set_learnings_rates([settings.lr_means, settings.lr_quats])
         self.appearance_optimizer.set_learnings_rates(
             [settings.lr_color, settings.lr_opacity, settings.lr_scale]
@@ -222,10 +223,19 @@ class EmbodiedGaussiansSimulator(Simulator):
                 render_mode="RGB",
             )
 
-            # 当前使用的是最直接的像素 MSE。
-            # 它回答的问题是：为了让渲染图更像真实观测，
-            # Gaussian 应该往哪里移动 / 旋转。
-            loss = torch.nn.functional.mse_loss(render_colors, frames.colors_gpu)
+            # Dataset adapters may fix the observation channel order and use
+            # a robust loss before turning the residual into pose updates.
+            target_colors = frames.colors_gpu
+            if settings.observations_are_bgr:
+                target_colors = target_colors.flip(-1)
+            if settings.robust_loss_beta > 0.0:
+                loss = torch.nn.functional.smooth_l1_loss(
+                    render_colors,
+                    target_colors,
+                    beta=settings.robust_loss_beta,
+                )
+            else:
+                loss = torch.nn.functional.mse_loss(render_colors, target_colors)
             # ideas: add a loss that pushes the colors back to their orignal values or to some sort of ema colors
             # ideas: allow the gaussians to jitter a bit while anchoring them to the original positions
 
@@ -285,6 +295,11 @@ class EmbodiedGaussiansSimulator(Simulator):
                 self.visual_forces._total_forces,
                 self.visual_forces._total_moments,
                 self.visual_forces._body_ids,
+                self.visual_forces._gaussian_counts,
+                self.visual_forces._apply_physics_forces,
+                int(settings.normalize_forces_by_gaussian_count),
+                settings.max_force,
+                settings.max_moment,
                 self.state_0.body_f,
             ],
         )
