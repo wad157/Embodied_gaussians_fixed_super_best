@@ -169,3 +169,14 @@ cython_debug/
 # pixi environments
 .pixi
 *.egg-info
+
+# Host-local VirtualGL and matching NVIDIA userspace runtime.
+tools/virtualgl/cache/
+tools/virtualgl/vendor/
+
+# Generated SUPER datasets, evaluation captures, and temporary mesh files.
+# The selected H3 metrics and reproduction settings are recorded in Markdown;
+# multi-gigabyte captures remain local.
+/outputs/
+/_skipped.face
+/_skipped.node

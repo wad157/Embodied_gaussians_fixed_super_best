@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+
+# Three bounded post-trajectory Adam iterations.  The underlying runner keeps
+# pure PBD frozen and can reuse a trajectory-only baseline, so the new output
+# isolates the effect of RGB/opacity learning and the stiffness branch.
+export TRAJECTORY_GAUSSIAN_APPEARANCE_ITERATIONS="${TRAJECTORY_GAUSSIAN_APPEARANCE_ITERATIONS:-3}"
+export TRAJECTORY_GAUSSIAN_COLOR_LR="${TRAJECTORY_GAUSSIAN_COLOR_LR:-0.02}"
+export TRAJECTORY_GAUSSIAN_OPACITY_LR="${TRAJECTORY_GAUSSIAN_OPACITY_LR:-0.005}"
+export TRAJECTORY_GAUSSIAN_COLOR_LOGIT_CAP="${TRAJECTORY_GAUSSIAN_COLOR_LOGIT_CAP:-0.20}"
+export TRAJECTORY_GAUSSIAN_OPACITY_LOGIT_CAP="${TRAJECTORY_GAUSSIAN_OPACITY_LOGIT_CAP:-0.10}"
+export TRAJECTORY_GAUSSIAN_APPEARANCE_IMAGE_SCALE="${TRAJECTORY_GAUSSIAN_APPEARANCE_IMAGE_SCALE:-0.5}"
+export TRAJECTORY_GAUSSIAN_APPEARANCE_DSSIM_WEIGHT="${TRAJECTORY_GAUSSIAN_APPEARANCE_DSSIM_WEIGHT:-0.02}"
+export RERUN_RECONSTRUCTION_TRAJECTORY="${RERUN_RECONSTRUCTION_TRAJECTORY:-1}"
+export RERUN_FUTURE_TRAJECTORY="${RERUN_FUTURE_TRAJECTORY:-1}"
+
+exec "${ROOT_DIR}/scripts/run_super_alltracker_rgb_observable_adam_full_metrics.sh" "$@"

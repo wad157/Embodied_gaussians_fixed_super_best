@@ -178,8 +178,18 @@ def ros_time_to_sec(timestamp_ns: int, start_ns: int) -> float:
 
 
 def image_msg_to_bgr(msg: Any) -> np.ndarray:
+    row_bytes = int(msg.width) * 3
+    if int(msg.step) < row_bytes:
+        raise ValueError(
+            f"Invalid {msg.encoding} row stride: step={msg.step}, expected at least {row_bytes}"
+        )
+    expected_bytes = int(msg.height) * int(msg.step)
+    if len(msg.data) != expected_bytes:
+        raise ValueError(
+            f"Invalid image payload: bytes={len(msg.data)}, expected {expected_bytes}"
+        )
     image = np.frombuffer(msg.data, dtype=np.uint8).reshape(msg.height, msg.step)
-    image = image[:, : msg.width * 3].reshape(msg.height, msg.width, 3)
+    image = image[:, :row_bytes].reshape(msg.height, msg.width, 3)
     encoding = str(msg.encoding).lower()
     if encoding == "rgb8":
         return cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
@@ -248,6 +258,8 @@ def extract(args: argparse.Namespace) -> None:
     joint_names: list[str] | None = None
     first_timestamp_ns: int | None = None
     counts = {LEFT_TOPIC: 0, RIGHT_TOPIC: 0, JOINT_TOPIC: 0}
+    last_rectified: dict[str, np.ndarray] = {}
+    recovered_images: list[dict[str, Any]] = []
 
     png_params = [cv2.IMWRITE_PNG_COMPRESSION, args.png_compression]
 
@@ -278,14 +290,43 @@ def extract(args: argparse.Namespace) -> None:
             if args.max_frames is not None and counts[conn.topic] >= args.max_frames:
                 continue
 
-            bgr = image_msg_to_bgr(msg)
+            try:
+                bgr = image_msg_to_bgr(msg)
+                if conn.topic == LEFT_TOPIC:
+                    rectified = cv2.remap(
+                        bgr,
+                        rect["left_map_x"],
+                        rect["left_map_y"],
+                        interpolation=cv2.INTER_LINEAR,
+                    )
+                else:
+                    rectified = cv2.remap(
+                        bgr,
+                        rect["right_map_x"],
+                        rect["right_map_y"],
+                        interpolation=cv2.INTER_LINEAR,
+                    )
+                last_rectified[conn.topic] = rectified
+            except ValueError as exc:
+                if conn.topic not in last_rectified:
+                    raise
+                rectified = last_rectified[conn.topic].copy()
+                recovery = {
+                    "topic": conn.topic,
+                    "frame_index": counts[conn.topic],
+                    "timestamp": timestamp,
+                    "encoding": str(msg.encoding),
+                    "width": int(msg.width),
+                    "height": int(msg.height),
+                    "step": int(msg.step),
+                    "data_bytes": len(msg.data),
+                    "reason": str(exc),
+                    "recovery": "duplicated_previous_rectified_frame",
+                }
+                recovered_images.append(recovery)
+                print(f"warning: recovered malformed image: {json.dumps(recovery)}")
+
             if conn.topic == LEFT_TOPIC:
-                rectified = cv2.remap(
-                    bgr,
-                    rect["left_map_x"],
-                    rect["left_map_y"],
-                    interpolation=cv2.INTER_LINEAR,
-                )
                 frame_index = counts[LEFT_TOPIC]
                 if not args.skip_png:
                     cv2.imwrite(
@@ -297,12 +338,6 @@ def extract(args: argparse.Namespace) -> None:
                 left_timestamps.append(timestamp)
                 counts[LEFT_TOPIC] += 1
             elif conn.topic == RIGHT_TOPIC:
-                rectified = cv2.remap(
-                    bgr,
-                    rect["right_map_x"],
-                    rect["right_map_y"],
-                    interpolation=cv2.INTER_LINEAR,
-                )
                 frame_index = counts[RIGHT_TOPIC]
                 if not args.skip_png:
                     cv2.imwrite(
@@ -415,7 +450,9 @@ def extract(args: argparse.Namespace) -> None:
             "left_images": len(left_timestamps),
             "right_images": len(right_timestamps),
             "joint_states": len(joint_timestamps),
+            "recovered_images": len(recovered_images),
         },
+        "recovered_image_details": recovered_images,
         "native_dir": str(args.native_dir),
         "offline_dir": str(args.offline_dir),
         "skip_png": args.skip_png,

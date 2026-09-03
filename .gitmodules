@@ -1,0 +1,6 @@
+[submodule "third_party/AllTracker"]
+	path = third_party/AllTracker
+	url = https://github.com/aharley/alltracker.git
+[submodule "third_party/FoundationStereo"]
+	path = third_party/FoundationStereo
+	url = https://github.com/NVlabs/FoundationStereo.git

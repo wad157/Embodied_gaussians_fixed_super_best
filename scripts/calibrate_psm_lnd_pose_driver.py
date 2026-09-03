@@ -97,6 +97,11 @@ def angular_distance_deg(a: np.ndarray, b: np.ndarray) -> float:
 
 def main() -> None:
     args = parse_args()
+    # Keep explicit per-dataset relative outputs usable.  The report records a
+    # repository-relative path below, which requires an absolute normalized
+    # path before calling ``relative_to(REPO)``.
+    args.output = args.output.resolve()
+    args.report = args.report.resolve()
     joints_data = read_json(args.joints)
     motion = read_json(args.lnd_motion)
     model = read_json(args.lnd_model)

@@ -16,6 +16,39 @@ Embodied Gaussians introduces a novel dual "Gaussian-Particle" representation th
 - 🌐 Integrates with an **XPBD physics** system
 - 🎨 Renders high-quality images through **3D Gaussian splatting**
 
+## SUPER extension and selected H3 baseline
+
+This fork adds a stereo surgical-tissue pipeline with tetrahedral XPBD,
+AllTracker/depth trajectory correction, a post-trajectory RGB residual, and
+causal online material identification. The currently selected reproducible
+material model is the global H3 baseline:
+
+- Reconstruction uses one non-overlapping H3 at the end of each legal 7:1
+  training block.
+- Future prediction estimates material parameters only in the first 80% and
+  performs no visual or material update after frame 1152.
+- The optimizer updates global distance stiffness and velocity damping while
+  shape and volume remain fixed.
+- Experimental 3-of-4 recovery, accumulated local stiffness, and Gaussian
+  appearance learning are disabled in the selected runner.
+
+Run the selected three-method evaluation with:
+
+```bash
+bash scripts/run_super_reproduce_old_h3_scale_only_three_way.sh \
+  outputs/<new-output-directory>
+```
+
+The verified H3 results, equations, exact parameters, commit frames, and
+reproduction contract are documented in
+[H3刚度正式记录.md](H3刚度正式记录.md). The full development record is in
+[PROGRESS.md](PROGRESS.md).
+
+`data/`, `outputs/`, model checkpoints, and host-specific CUDA/VirtualGL
+runtime files are intentionally excluded from Git. AllTracker and
+FoundationStereo are pinned as Git submodules; their checkpoints must be
+obtained according to the corresponding upstream project instructions.
+
 ## Demo
 <div align="left" style="display: left; align-items: center; justify-content: center; gap: 20px;">
     <img src="static/embodied_demo.gif" alt="Embodied Gaussians Demo" width="640">
