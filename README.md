@@ -8,7 +8,8 @@
 
 [原始 Embodied Gaussians 项目](https://embodied-gaussians.github.io/) ·
 [原始论文](https://openreview.net/forum?id=AEq0onGrN2) ·
-[正式 H3 配置与结果](H3刚度正式记录.md) ·
+[较软参数 H3 三次重复结果](SOFT_H3_THREE_RUN_EVALUATION.md) ·
+[机器可读结果数据](results/super_grasp5_soft_h3_three_runs_v1.csv) ·
 [完整评测协议](SUPER物理重建与未来预测评估协议.md) ·
 [开发记录](PROGRESS.md)
 
@@ -20,12 +21,14 @@
 - 使用 [AllTracker](https://alltracker.github.io/) 跟踪图像中的组织运动；
 - 使用 [FoundationStereo](https://nvlabs.github.io/FoundationStereo/) 深度先验把 2D 轨迹提升为 3D 目标；
 - 将 3D 目标投影并绑定到物理表面三角形，通过联合最小二乘同时修正粒子位置和速度；
-- 在轨迹修正之后执行一次小范围 RGB 残差修正，补偿轨迹没有覆盖的局部外观误差；
+- 保留轨迹后 RGB 残差模块用于消融，但当前正式配置关闭它，避免外观梯度扰动几何状态；
 - 使用视觉修正前的物理预测误差，在训练帧内在线辨识全局 distance stiffness 和速度阻尼；
 - 将物理粒子的形变传给绑定的 3D Gaussians，使其位置、方向和尺度随组织表面变化；
 - 同时评估 `7:1` 重建和 `80:20` 严格开放环未来预测。
 
-当前正式版本是已经完整复现的 **全局 H3 刚度版本**。实验性的 `3-of-4 H3`、累计局部刚度场和 Gaussian 颜色/不透明度学习均未启用。
+当前正式版本使用较软初值 `distance=0.01`、`shape=0.0005` 和 **全局强 H3**；
+关闭轨迹后 RGB residual、`3-of-4 H3`、累计局部刚度场以及 Gaussian 颜色/不透明度
+学习。正式数值来自三次相同代码、输入和配置的完整重复运行，而不是挑选单次最好结果。
 
 ## 整体方法
 
@@ -38,8 +41,9 @@ flowchart LR
     D --> E[表面三角形投影与重心绑定]
     F[四面体 XPBD 预测] --> G[粒子位置/速度联合修正]
     E --> G
-    G --> H[小范围 RGB 残差修正]
-    H --> I[Gaussian 物理蒙皮与渲染]
+    G --> I[Gaussian 物理蒙皮与渲染]
+    G -. 可选模块，正式配置关闭 .-> H[小范围 RGB 残差修正]
+    H -.-> I
     F --> J[H3 反事实 XPBD 回放]
     E --> J
     J --> K[在线 distance stiffness / damping]
@@ -51,7 +55,7 @@ flowchart LR
 1. 物理模型先预测下一状态；
 2. 视觉轨迹提供组织表面的绝对位置和增量运动；
 3. 多条重叠轨迹作为一个联合约束系统修正物理状态；
-4. RGB 只负责剩余的小尺度误差；
+4. 可选 RGB 模块只处理剩余的小尺度误差，正式评估中关闭；
 5. 物理预测与视觉观测之间的系统性差异用于估计材料参数；
 6. 测试未来时冻结所有视觉和材料更新，只保留已知器械控制和 XPBD 前向模拟。
 
@@ -107,11 +111,15 @@ v_t^{acc}=v_t^{pred}+\alpha_v\Delta v^*.
 
 这一步解决了仅修正增量流无法消除累计位置漂移，以及逐轨迹独立传播造成约束串扰的问题。
 
-### 4. 轨迹后的 RGB 微修正
+### 4. 可选的轨迹后 RGB 微修正
 
-稀疏/稠密轨迹主要约束几何运动，但不能覆盖所有组织纹理和轮廓。轨迹状态接受后，系统在组织 mask 内计算渲染残差，并对受物理绑定约束的 Gaussian/粒子位置执行一次小范围修正。正式 H3 配置的 RGB 位置/速度增益为 `1.0 / 0.15`。
+稀疏/稠密轨迹主要约束几何运动，但不能覆盖所有组织纹理和轮廓。代码保留了一个轨迹
+状态接受后的 RGB 微修正模块，可在组织 mask 内对受物理绑定约束的 Gaussian/粒子位置
+执行小范围优化。消融实验发现它可能改善局部图像损失，但也会把颜色/遮挡误差写入几何
+和速度，因此当前三次正式评估设置 `trajectory_rgb_residual_enabled=0`。
 
-RGB 修正属于训练帧的状态观测器，不参与留出重建帧，也不参与未来 20% 帧。Gaussian 颜色和不透明度优化在正式版本中关闭。
+即使显式启用，RGB 修正也只属于训练帧状态观测器，不参与留出重建帧或未来 20% 帧。
+Gaussian 颜色和不透明度在线优化在正式版本中同样关闭。
 
 ### 5. H3 在线刚度与阻尼辨识
 
@@ -148,7 +156,8 @@ H3 梯度还要与独立 restarted one-step surrogate 的梯度同向：
 g^{H3}\cdot\Delta\theta<0.
 \]
 
-通过后使用 Adam 更新，学习率为 `0.03`，实际单次最大 log step 为 `0.02`。当前固定参数和边界如下：
+通过后使用 Adam 更新，学习率为 `0.03`。当前强 H3 将实际单次最大 log step 放宽到
+`0.08`，但仍使用相同的可观测性、下降方向和物理安全检查。当前固定参数和边界如下：
 
 | 参数 | 正式值 |
 |---|---:|
@@ -157,11 +166,14 @@ g^{H3}\cdot\Delta\theta<0.
 | shape stiffness | `0.0005`，固定 |
 | volume stiffness | `100000`，固定 |
 | damping 搜索边界 | `2 .. 30 /s` |
-| Reconstruction 累计 log 范围 | `0.15` |
-| Future 累计 log 范围 | `0.35` |
+| Reconstruction 累计 log 范围 | `0.60` |
+| Future 累计 log 范围 | `0.80` |
 | 轨迹 robust scale | `0.2 mm` |
 
-Reconstruction 在每个合法的七帧训练块内使用一个互不重叠的 H3；Future 在训练区间使用 H3-based available H2–H3，其中 H2 必须经过独立训练块方向确认。详细提交条件和实际提交帧见 [H3刚度正式记录.md](H3刚度正式记录.md)。
+Reconstruction 在合法七帧训练块内使用互不重叠的 H3；Future 在训练区间使用
+H3-based available H2–H3。所有 Future 材料更新在 frame 1152 前结束，之后只执行冻结
+材料参数的开放环 XPBD。旧小步 H3 的历史配置见 [H3刚度正式记录.md](H3刚度正式记录.md)，
+当前强 H3 配置和三次结果见 [较软参数三次重复评估](SOFT_H3_THREE_RUN_EVALUATION.md)。
 
 ## 评测协议
 
@@ -188,31 +200,45 @@ Reconstruction 在每个合法的七帧训练块内使用一个互不重叠的 H
 
 ## 正式测评结果
 
-结果目录：`outputs/super_old_h3_reproduction_scale_only_20260903_v1`。该目录不上传 GitHub，但其配置、结果和输入哈希已经记录在 [H3刚度正式记录.md](H3刚度正式记录.md)。以下数值来自同一次冻结三方法评估，代码快照为 `5b075303`。
+以下结果使用较软初值 `distance=0.01`、`shape=0.0005`、`volume=100000`，关闭
+post-trajectory RGB residual 和局部刚度。每个方法都独立完整运行三次；表中报告算术平均
+与样本标准差（`mean ± std, ddof=1`）。三次运行的代码/输入 SHA256、配置、GT hash、
+完整轨迹计划和渲染分区均一致。
+
+逐次原始指标已提交为
+[CSV 数据](results/super_grasp5_soft_h3_three_runs_v1.csv)，完整统计说明见
+[较软参数强 H3 三次重复评估](SOFT_H3_THREE_RUN_EVALUATION.md)。大型逐帧 capture、视频和
+checkpoint 不上传 GitHub。
 
 ### Reconstruction 7:1
 
-| 方法 | 3D Tracking ↓ | 2D Tracking ↓ | PSNR ↑ | SSIM ↑ | LPIPS ↓ | FPS ↑ |
-|---|---:|---:|---:|---:|---:|---:|
-| Pure PBD | 1.546043 mm | 26.946666 px | 22.556952 | 0.778590 | 0.473099 | 6.723 |
-| PBD + trajectory + RGB | 0.753540 mm | 10.504686 px | 22.451175 | 0.786105 | 0.473565 | 1.537 |
-| **PBD + trajectory + RGB + H3** | **0.727802 mm** | **9.117631 px** | **22.576592** | **0.788351** | **0.472151** | 1.318 |
+| 方法 | 3D Tracking (mm) ↓ | 2D Tracking (px) ↓ | PSNR ↑ | SSIM ↑ | LPIPS ↓ |
+|---|---:|---:|---:|---:|---:|
+| Pure PBD | 1.5699 ± 0.0173 | 27.1018 ± 0.2005 | **22.5333 ± 0.0115** | 0.778051 ± 0.000200 | **0.474427 ± 0.000476** |
+| PBD + trajectory | 0.9103 ± 0.0634 | 12.6217 ± 0.7731 | 22.3055 ± 0.0864 | 0.780189 ± 0.001768 | 0.477992 ± 0.000747 |
+| **PBD + trajectory + strong H3** | **0.8791 ± 0.0361** | **11.8945 ± 1.2145** | 22.3173 ± 0.0295 | **0.780752 ± 0.000480** | 0.477626 ± 0.000376 |
 
-相对 `trajectory + RGB`，H3 将 Reconstruction 的 3D 误差再降低 **3.42%**、2D 误差再降低 **13.20%**，并同时改善 PSNR、SSIM 和 LPIPS。相对 Pure PBD，正式 H3 在五项质量指标上也全部更优。
+按三次均值，强 H3 相对 trajectory 将 3D/2D 误差降低约 **3.4% / 5.8%**，三项
+渲染指标也略有改善；相对 Pure PBD 的 3D/2D 降幅约 **44.0% / 56.1%**。不过
+Reconstruction 的 H3 增益小于重复运行标准差，尤其2D误差仍有明显波动，因此不把它
+表述为已获得强统计显著性的提升。
 
 ### Future 80:20
 
-| 方法 | 3D Tracking ↓ | 2D Tracking ↓ | PSNR ↑ | SSIM ↑ | LPIPS ↓ | FPS ↑ |
-|---|---:|---:|---:|---:|---:|---:|
-| Pure PBD | 1.589406 mm | 26.737669 px | 21.882809 | 0.751392 | 0.476906 | 5.888 |
-| PBD + trajectory + RGB | 1.530379 mm | 20.098441 px | 21.493695 | 0.744701 | 0.484974 | 1.684 |
-| **PBD + trajectory + RGB + H3** | **1.263942 mm** | **15.489142 px** | 21.737514 | **0.752663** | 0.478689 | 0.657 |
+| 方法 | 3D Tracking (mm) ↓ | 2D Tracking (px) ↓ | PSNR ↑ | SSIM ↑ | LPIPS ↓ |
+|---|---:|---:|---:|---:|---:|
+| Pure PBD | 1.7737 ± 0.0916 | 28.8022 ± 1.0568 | **21.8378 ± 0.0349** | 0.749554 ± 0.000979 | 0.478783 ± 0.001678 |
+| PBD + trajectory | 1.2836 ± 0.1769 | 17.1502 ± 2.0488 | 21.4792 ± 0.1115 | 0.745853 ± 0.003038 | 0.481951 ± 0.005118 |
+| **PBD + trajectory + strong H3** | **0.9066 ± 0.1217** | **11.8987 ± 1.1069** | 21.7299 ± 0.1303 | **0.756029 ± 0.004701** | **0.471774 ± 0.004615** |
 
-相对 `trajectory + RGB`，H3 将开放环未来预测的 3D 误差降低 **17.41%**、2D 误差降低 **22.93%**，并改善该基线的三项渲染指标。相对 Pure PBD，H3 的 tracking 和 SSIM 更好，但 PSNR 仍低 `0.145 dB`、LPIPS 仍高 `0.001783`；这里不把它表述为渲染全面领先。
+按三次均值，强 H3 相对 trajectory 将开放环 Future 的 3D/2D 误差降低约
+**29.4% / 30.6%**，并同时改善 PSNR、SSIM 和 LPIPS；相对 Pure PBD 的 3D/2D
+降幅约 **48.9% / 58.7%**。H3 的 Future SSIM 和 LPIPS 优于 Pure PBD，但 PSNR 仍低
+约 `0.108 dB`，所以这里同样不宣称对 Pure PBD 的所有渲染指标全面领先。
 
-Reconstruction / Future 分别使用 35 / 31 个 tracking 计分帧和 180 / 288 个 rendering 计分帧，3D 覆盖率为 `1.0`。H3 在 Reconstruction 提交 6 次、在 Future 训练区间提交 22 次，Future 的所有材料更新均早于 frame 1152。
-
-FPS 是 NVIDIA A800 上完整评测链路的 `video_frames_per_s`，包含视觉观测、反事实 H3 回放、渲染与计分开销，不代表纯 XPBD 内核速度。当前正式系统不是实时实现。
+Reconstruction / Future 每次分别使用 35 / 31 个 tracking 计分帧和 180 / 288 个
+rendering 计分帧，3D 覆盖率为 `1.0`。当前结果证明 Future 优势在三次重复中保持，但
+样本量仍然只有三次且只来自 `grasp5`，不能替代跨序列统计。
 
 ## 安装
 
@@ -280,20 +306,29 @@ bash scripts/run_demo_thinlinc.sh --psm-pose-driver depth_then_visual
 bash scripts/run_demo_thinlinc.sh --check-virtualgl
 ```
 
-### 正式 H3 三方法评估
+### 当前正式三方法评估
 
 ```bash
-bash scripts/run_super_reproduce_old_h3_scale_only_three_way.sh \
+bash scripts/run_super_h3_no_rgb_soft_full_metrics.sh \
   outputs/<new-output-directory>
 ```
 
-该冻结 wrapper 会复用参考评估中的 Pure PBD 与 `trajectory + RGB` capture，只重新计算 H3 第三组，以保证基线输入完全相同。因此除了上述数据和 tracker/depth 产物，还需要本地参考目录：
+该 wrapper 使用 `distance=0.01`、`shape=0.0005`，从头生成 Pure PBD、trajectory 和
+trajectory + strong H3 的 Reconstruction/Future 六个结果。RGB residual 和局部刚度
+默认关闭；Reconstruction/Future 分别使用 GPU0/GPU1。
 
-```text
-outputs/super_alltracker_rgb_recon_nonoverlap_h3_full_metrics_20260831_v10/
+三次运行完成后，可用以下命令验证配置/代码哈希并生成 `mean ± sample std`：
+
+```bash
+python scripts/summarize_super_soft_three_runs.py \
+  --run run1=outputs/<run1> \
+  --run run2=outputs/<run2> \
+  --run run3=outputs/<run3> \
+  --output-json outputs/<summary>/average_results.json \
+  --output-markdown outputs/<summary>/average_results.md
 ```
 
-若需要从头重新生成对应方法，主入口是：
+更通用的主入口仍是：
 
 ```bash
 bash scripts/run_super_alltracker_rgb_observable_adam_full_metrics.sh \
@@ -334,7 +369,8 @@ third_party/
 - Future 阶段使用真实器械轨迹作为已知控制，不预测器械运动；
 - 3D GT 的准确度受双目深度和标定误差限制；
 - H3 是全局 distance stiffness 与 damping，尚未证明局部材料场能够稳定提升；
-- H3 反事实回放和 RGB 反向传播显著降低吞吐率；
+- H3 反事实 XPBD 回放显著降低吞吐率，当前正式系统不是实时实现；
+- Reconstruction 的强 H3 平均增益小于三次重复标准差，仍需更多序列和随机种子验证；
 - GitHub 仓库不包含原始 SUPER 数据、checkpoint 和实验 outputs。
 
 ## 与相关工作的关系

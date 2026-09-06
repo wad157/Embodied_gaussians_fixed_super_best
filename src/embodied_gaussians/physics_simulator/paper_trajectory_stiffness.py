@@ -77,15 +77,27 @@ class PaperTrajectoryAdamSettings:
     region_balance_weight: float = 0.10
     tail_region_weight: float = 0.05
     tail_region_fraction: float = 0.25
-    # Optional residual local field applied after a successful global H3
-    # update.  Only distance stiffness is locally varied; shape remains fixed
-    # to avoid the distance/shape ambiguity seen in earlier SUPER runs.
+    # Optional residual local fields applied after a successful global H3
+    # update.  Each observation proposes only one signed, graph-smoothed
+    # direction.  Distance and shape compete as separate axes instead of
+    # moving together, which keeps their otherwise severe ambiguity bounded.
     local_distance_enabled: bool = False
     local_distance_maximum_log_step: float = 0.008
     local_distance_maximum_log_offset: float = 0.04
     local_distance_minimum_loss_improvement: float = 1.0e-6
     local_distance_smoothing_iterations: int = 2
     local_distance_smoothing_blend: float = 0.35
+    local_shape_enabled: bool = False
+    local_shape_maximum_log_step: float = 0.008
+    local_shape_maximum_log_offset: float = 0.04
+    # When enabled, a candidate selected on one H3 is not installed until it
+    # also improves a later, transition-disjoint H3.  The current global H3
+    # remains live while this local proposal is pending.
+    local_cross_window_confirmation: bool = False
+    # H1 is allowed to fluctuate, but the weighted last-two horizon objective
+    # must improve and neither tail endpoint may exceed this relative noise
+    # allowance.  This prevents a local field from winning only on H1.
+    local_tail_relative_tolerance: float = 0.001
 
     def validate(self) -> None:
         if self.learning_rate <= 0.0:
@@ -175,6 +187,12 @@ class PaperTrajectoryAdamSettings:
             raise ValueError("Local distance smoothing iterations cannot be negative")
         if not 0.0 <= self.local_distance_smoothing_blend <= 1.0:
             raise ValueError("Local distance smoothing blend must lie in [0,1]")
+        if self.local_shape_maximum_log_step <= 0.0:
+            raise ValueError("Local shape log step must be positive")
+        if self.local_shape_maximum_log_offset <= 0.0:
+            raise ValueError("Local shape log offset must be positive")
+        if self.local_tail_relative_tolerance < 0.0:
+            raise ValueError("Local tail tolerance cannot be negative")
 
 
 @dataclass(frozen=True)
@@ -261,8 +279,18 @@ class PaperTrajectoryAdamOptimizer:
         self.local_distance_log_offsets = torch.zeros_like(
             self._global_initial_distance, dtype=torch.float32
         )
+        self.local_shape_log_offsets = torch.zeros_like(
+            self._global_initial_shape, dtype=torch.float32
+        )
         self.local_distance_update_count = 0
+        self.local_shape_update_count = 0
+        self.local_material_proposal_count = 0
         self._pending_local_distance_offsets: dict[str, torch.Tensor] = {}
+        self._pending_local_shape_offsets: dict[str, torch.Tensor] = {}
+        self._staged_local_distance_offsets: torch.Tensor | None = None
+        self._staged_local_shape_offsets: torch.Tensor | None = None
+        self._staged_local_axis: str | None = None
+        self._staged_local_destination_frame: int | None = None
 
     @staticmethod
     def _material_to_theta(
@@ -282,20 +310,33 @@ class PaperTrajectoryAdamOptimizer:
     def current_material(self) -> tuple[torch.Tensor, torch.Tensor]:
         if self.settings.sim_global_causal_mode:
             distance = self._global_initial_distance.detach().clone()
-            distance[self._global_material_mask] = torch.clamp(
-                self._global_initial_distance[self._global_material_mask]
-                * torch.exp(
-                    self.global_log_coefficients[0]
+            distance_log_offset = self.global_log_coefficients[0]
+            if self.settings.local_distance_enabled:
+                distance_log_offset = (
+                    distance_log_offset
                     + self.local_distance_log_offsets[
                         self._global_material_mask
                     ]
-                ),
+                )
+            distance[self._global_material_mask] = torch.clamp(
+                self._global_initial_distance[self._global_material_mask]
+                * torch.exp(distance_log_offset),
                 min=self.settings.distance_minimum,
                 max=self.settings.distance_maximum,
             )
-            # Shape is intentionally frozen. SIM found that estimating shape
-            # from the same image trajectory made distance/shape confounded.
-            return distance, self._global_initial_shape.detach().clone()
+            shape = self._global_initial_shape.detach().clone()
+            if self.settings.local_shape_enabled:
+                shape[self._global_material_mask] = torch.clamp(
+                    self._global_initial_shape[self._global_material_mask]
+                    * torch.exp(
+                        self.local_shape_log_offsets[
+                            self._global_material_mask
+                        ]
+                    ),
+                    min=self.settings.shape_minimum,
+                    max=self.settings.shape_maximum,
+                )
+            return distance, shape
         return (
             self._theta_to_material(
                 self.distance_theta,
@@ -344,8 +385,16 @@ class PaperTrajectoryAdamOptimizer:
         self.h2_confirmation_gradient = None
         self.h2_confirmation_block_index = None
         self.local_distance_log_offsets.zero_()
+        self.local_shape_log_offsets.zero_()
         self.local_distance_update_count = 0
+        self.local_shape_update_count = 0
+        self.local_material_proposal_count = 0
         self._pending_local_distance_offsets.clear()
+        self._pending_local_shape_offsets.clear()
+        self._staged_local_distance_offsets = None
+        self._staged_local_shape_offsets = None
+        self._staged_local_axis = None
+        self._staged_local_destination_frame = None
 
     def current_velocity_damping_per_second(self) -> float:
         settings = self.settings
@@ -385,27 +434,31 @@ class PaperTrajectoryAdamOptimizer:
                     min=damping_minimum_log, max=damping_maximum_log
                 )
                 distance = self._global_initial_distance.detach().clone()
-                distance[self._global_material_mask] = torch.clamp(
-                    self._global_initial_distance[self._global_material_mask]
-                    * torch.exp(
-                        coefficients[0]
+                distance_log_offset = coefficients[0]
+                if settings.local_distance_enabled:
+                    distance_log_offset = (
+                        distance_log_offset
                         + self.local_distance_log_offsets[
                             self._global_material_mask
                         ]
-                    ),
+                    )
+                distance[self._global_material_mask] = torch.clamp(
+                    self._global_initial_distance[self._global_material_mask]
+                    * torch.exp(distance_log_offset),
                     min=settings.distance_minimum,
                     max=settings.distance_maximum,
                 )
                 damping = settings.velocity_damping_initial_per_second * math.exp(
                     float(coefficients[1].item())
                 )
+                _current_distance, current_shape = self.current_material()
                 trials.append(
                     PaperTrajectoryMaterialTrial(
                         label=f"{axis}_{'plus' if sign > 0 else 'minus'}",
                         axis=axis,
                         sign=sign,
                         distance_stiffness=distance,
-                        shape_stiffness=self._global_initial_shape.detach().clone(),
+                        shape_stiffness=current_shape,
                         velocity_damping_per_second=float(damping),
                         global_log_coefficients=(
                             float(coefficients[0].item()),
@@ -420,7 +473,11 @@ class PaperTrajectoryAdamOptimizer:
         raw_signal: torch.Tensor,
         support_mask: torch.Tensor,
     ) -> torch.Tensor:
-        """Build one smooth, bounded and exactly zero-mean local axis."""
+        """Build one smooth, bounded and exactly zero-mean local axis.
+
+        The same observable edge-strain direction may probe distance and
+        shape, but the two material families are always replayed separately.
+        """
 
         signal = raw_signal.detach().to(
             device=self.distance_stiffness.device, dtype=torch.float32
@@ -474,10 +531,10 @@ class PaperTrajectoryAdamOptimizer:
         current.masked_fill_(~support, 0.0)
         return current
 
-    def _project_local_distance_offsets(
-        self, offsets: torch.Tensor
+    def _project_local_offsets(
+        self, offsets: torch.Tensor, maximum_log_offset: float
     ) -> torch.Tensor:
-        """Keep the local log field bounded with no global-mean leakage."""
+        """Keep one local log field bounded with no global-mean leakage."""
 
         projected = offsets.detach().clone().to(
             device=self.distance_stiffness.device, dtype=torch.float32
@@ -486,139 +543,422 @@ class PaperTrajectoryAdamOptimizer:
         active = projected[self._global_material_mask]
         active -= active.mean()
         maximum = active.abs().max()
-        limit = self.settings.local_distance_maximum_log_offset
+        limit = float(maximum_log_offset)
         if float(maximum.item()) > limit:
             active *= limit / maximum
         projected[self._global_material_mask] = active
         return projected
 
-    def _limit_local_distance_step(
+    def _project_local_distance_offsets(
+        self, offsets: torch.Tensor
+    ) -> torch.Tensor:
+        return self._project_local_offsets(
+            offsets, self.settings.local_distance_maximum_log_offset
+        )
+
+    def _project_local_shape_offsets(
+        self, offsets: torch.Tensor
+    ) -> torch.Tensor:
+        return self._project_local_offsets(
+            offsets, self.settings.local_shape_maximum_log_offset
+        )
+
+    def _limit_local_step(
         self,
         previous: torch.Tensor,
         proposed: torch.Tensor,
+        maximum_log_step: float,
     ) -> torch.Tensor:
         """Enforce the trust radius after every zero-mean projection."""
 
         effective = proposed - previous
         maximum = effective.abs().max()
-        limit = self.settings.local_distance_maximum_log_step
+        limit = float(maximum_log_step)
         if float(maximum.item()) > limit:
             # Both endpoints already have zero mean and lie inside the
             # cumulative box. Their convex interpolation preserves both.
             proposed = previous + effective * (limit / maximum)
         return proposed
 
-    def begin_local_distance_observation(
-        self, direction: torch.Tensor
-    ) -> tuple[PaperTrajectoryMaterialTrial, ...]:
-        """Create global-only and signed local-distance H3 trials."""
+    def _limit_local_distance_step(
+        self,
+        previous: torch.Tensor,
+        proposed: torch.Tensor,
+    ) -> torch.Tensor:
+        return self._limit_local_step(
+            previous,
+            proposed,
+            self.settings.local_distance_maximum_log_step,
+        )
 
-        if not self.settings.local_distance_enabled:
+    def _limit_local_shape_step(
+        self,
+        previous: torch.Tensor,
+        proposed: torch.Tensor,
+    ) -> torch.Tensor:
+        return self._limit_local_step(
+            previous,
+            proposed,
+            self.settings.local_shape_maximum_log_step,
+        )
+
+    @property
+    def local_material_confirmation_pending(self) -> bool:
+        return self._staged_local_axis is not None
+
+    @property
+    def local_material_pending_axis(self) -> str:
+        return self._staged_local_axis or ""
+
+    @property
+    def local_material_pending_destination_frame(self) -> int:
+        return int(
+            -1
+            if self._staged_local_destination_frame is None
+            else self._staged_local_destination_frame
+        )
+
+    def _local_material_trial(
+        self,
+        *,
+        label: str,
+        axis: str,
+        sign: int,
+        distance_offsets: torch.Tensor,
+        shape_offsets: torch.Tensor,
+    ) -> PaperTrajectoryMaterialTrial:
+        distance = self._global_initial_distance.detach().clone()
+        distance[self._global_material_mask] = torch.clamp(
+            self._global_initial_distance[self._global_material_mask]
+            * torch.exp(
+                self.global_log_coefficients[0]
+                + distance_offsets[self._global_material_mask]
+            ),
+            min=self.settings.distance_minimum,
+            max=self.settings.distance_maximum,
+        )
+        shape = self._global_initial_shape.detach().clone()
+        shape[self._global_material_mask] = torch.clamp(
+            self._global_initial_shape[self._global_material_mask]
+            * torch.exp(shape_offsets[self._global_material_mask]),
+            min=self.settings.shape_minimum,
+            max=self.settings.shape_maximum,
+        )
+        return PaperTrajectoryMaterialTrial(
+            label=label,
+            axis=axis,
+            sign=sign,
+            distance_stiffness=distance,
+            shape_stiffness=shape,
+            velocity_damping_per_second=(
+                self.current_velocity_damping_per_second()
+            ),
+            global_log_coefficients=(
+                float(self.global_log_coefficients[0].item()),
+                float(self.global_log_coefficients[1].item()),
+            ),
+        )
+
+    def begin_local_distance_observation(
+        self,
+        direction: torch.Tensor,
+        *,
+        source_frame: int | None = None,
+        destination_frame: int | None = None,
+    ) -> tuple[PaperTrajectoryMaterialTrial, ...]:
+        """Create separate distance/shape trials or validate a staged trial.
+
+        The historical method name is retained for CLI compatibility.  With
+        cross-window confirmation disabled it behaves like the original
+        immediate local-distance implementation.
+        """
+
+        if not (
+            self.settings.local_distance_enabled
+            or self.settings.local_shape_enabled
+        ):
             return ()
         direction = direction.detach().to(
             device=self.distance_stiffness.device, dtype=torch.float32
         )
         if direction.shape != self.distance_stiffness.shape:
-            raise ValueError("Local distance direction has the wrong shape")
-        if float(direction.abs().max().item()) <= 1.0e-12:
-            return ()
-        base = self.local_distance_log_offsets.detach().clone()
-        step = self.settings.local_distance_maximum_log_step
-        offsets = {
-            "local_base": base,
-            "local_plus": self._limit_local_distance_step(
-                base,
-                self._project_local_distance_offsets(
-                    base + step * direction
-                ),
-            ),
-            "local_minus": self._limit_local_distance_step(
-                base,
-                self._project_local_distance_offsets(
-                    base - step * direction
-                ),
-            ),
-        }
-        self._pending_local_distance_offsets = offsets
-        trials: list[PaperTrajectoryMaterialTrial] = []
-        for label in ("local_base", "local_plus", "local_minus"):
-            local = offsets[label]
-            distance = self._global_initial_distance.detach().clone()
-            distance[self._global_material_mask] = torch.clamp(
-                self._global_initial_distance[self._global_material_mask]
-                * torch.exp(
-                    self.global_log_coefficients[0]
-                    + local[self._global_material_mask]
-                ),
-                min=self.settings.distance_minimum,
-                max=self.settings.distance_maximum,
-            )
-            trials.append(
-                PaperTrajectoryMaterialTrial(
-                    label=label,
-                    axis="local_distance",
-                    sign=(1 if label == "local_plus" else -1 if label == "local_minus" else 0),
-                    distance_stiffness=distance,
-                    shape_stiffness=self._global_initial_shape.detach().clone(),
-                    velocity_damping_per_second=(
-                        self.current_velocity_damping_per_second()
-                    ),
-                    global_log_coefficients=(
-                        float(self.global_log_coefficients[0].item()),
-                        float(self.global_log_coefficients[1].item()),
-                    ),
+            raise ValueError("Local material direction has the wrong shape")
+        distance_base = self.local_distance_log_offsets.detach().clone()
+        shape_base = self.local_shape_log_offsets.detach().clone()
+        distance_offsets: dict[str, torch.Tensor] = {}
+        shape_offsets: dict[str, torch.Tensor] = {}
+        axes: dict[str, tuple[str, int]] = {}
+        if (
+            self.settings.local_cross_window_confirmation
+            and self.local_material_confirmation_pending
+        ):
+            if source_frame is None:
+                raise ValueError(
+                    "Cross-window local validation requires a source frame"
                 )
+            assert self._staged_local_destination_frame is not None
+            if int(source_frame) < self._staged_local_destination_frame:
+                self._pending_local_distance_offsets.clear()
+                self._pending_local_shape_offsets.clear()
+                return ()
+            assert self._staged_local_distance_offsets is not None
+            assert self._staged_local_shape_offsets is not None
+            distance_offsets = {
+                "local_base": distance_base,
+                "local_confirm": self._staged_local_distance_offsets,
+            }
+            shape_offsets = {
+                "local_base": shape_base,
+                "local_confirm": self._staged_local_shape_offsets,
+            }
+            axes = {
+                "local_base": ("local_base", 0),
+                "local_confirm": (self.local_material_pending_axis, 0),
+            }
+        else:
+            if float(direction.abs().max().item()) <= 1.0e-12:
+                return ()
+            distance_offsets["local_base"] = distance_base
+            shape_offsets["local_base"] = shape_base
+            axes["local_base"] = ("local_base", 0)
+            if self.settings.local_distance_enabled:
+                step = self.settings.local_distance_maximum_log_step
+                for label, sign in (("local_plus", 1), ("local_minus", -1)):
+                    distance_offsets[label] = self._limit_local_distance_step(
+                        distance_base,
+                        self._project_local_distance_offsets(
+                            distance_base + float(sign) * step * direction
+                        ),
+                    )
+                    shape_offsets[label] = shape_base
+                    axes[label] = ("local_distance", sign)
+            if self.settings.local_shape_enabled:
+                step = self.settings.local_shape_maximum_log_step
+                for label, sign in (
+                    ("local_shape_plus", 1),
+                    ("local_shape_minus", -1),
+                ):
+                    distance_offsets[label] = distance_base
+                    shape_offsets[label] = self._limit_local_shape_step(
+                        shape_base,
+                        self._project_local_shape_offsets(
+                            shape_base + float(sign) * step * direction
+                        ),
+                    )
+                    axes[label] = ("local_shape", sign)
+        self._pending_local_distance_offsets = distance_offsets
+        self._pending_local_shape_offsets = shape_offsets
+        trials = [
+            self._local_material_trial(
+                label=label,
+                axis=axes[label][0],
+                sign=axes[label][1],
+                distance_offsets=distance_offsets[label],
+                shape_offsets=shape_offsets[label],
             )
+            for label in distance_offsets
+        ]
         self.loss_evaluation_count += len(trials)
         return tuple(trials)
 
-    def finish_local_distance_observation(
-        self, losses: dict[str, float]
-    ) -> tuple[torch.Tensor, torch.Tensor, dict[str, float | int | str]]:
-        """Accept a signed local field only when it beats global-only H3."""
+    def _local_horizon_improves(
+        self,
+        label: str,
+        horizon_losses: dict[str, tuple[float, ...]] | None,
+    ) -> bool:
+        if horizon_losses is None:
+            return True
+        base = tuple(float(value) for value in horizon_losses["local_base"])
+        candidate = tuple(float(value) for value in horizon_losses[label])
+        if len(base) != len(candidate) or len(base) < 2:
+            return False
+        if not all(math.isfinite(value) for value in base + candidate):
+            return False
+        tail_size = min(2, len(base))
+        base_tail = base[-tail_size:]
+        candidate_tail = candidate[-tail_size:]
+        tolerance = self.settings.local_tail_relative_tolerance
+        if any(
+            proposed > reference + max(abs(reference) * tolerance, 1.0e-7)
+            for reference, proposed in zip(base_tail, candidate_tail)
+        ):
+            return False
+        weights = self.settings.causal_horizon_weights[-tail_size:]
+        base_weighted = sum(
+            weight * value for weight, value in zip(weights, base_tail)
+        ) / sum(weights)
+        candidate_weighted = sum(
+            weight * value for weight, value in zip(weights, candidate_tail)
+        ) / sum(weights)
+        return candidate_weighted < base_weighted
 
-        required = {"local_base", "local_plus", "local_minus"}
-        if set(losses) != required or set(self._pending_local_distance_offsets) != required:
-            raise ValueError("Local distance H3 requires base/plus/minus trials")
+    def finish_local_distance_observation(
+        self,
+        losses: dict[str, float],
+        *,
+        horizon_losses: dict[str, tuple[float, ...]] | None = None,
+        destination_frame: int | None = None,
+    ) -> tuple[torch.Tensor, torch.Tensor, dict[str, float | int | str]]:
+        """Select one local axis and optionally confirm it on another H3."""
+
+        required = set(self._pending_local_distance_offsets)
+        if (
+            set(losses) != required
+            or set(self._pending_local_shape_offsets) != required
+            or "local_base" not in required
+        ):
+            raise ValueError("Local material H3 trials disagree")
+        if horizon_losses is not None and set(horizon_losses) != required:
+            raise ValueError("Local material horizon trials disagree")
         if not all(math.isfinite(float(value)) for value in losses.values()):
-            raise ValueError("Local distance H3 received a non-finite loss")
+            raise ValueError("Local material H3 received a non-finite loss")
         base_loss = float(losses["local_base"])
-        label = min(("local_plus", "local_minus"), key=lambda key: losses[key])
+        candidate_labels = tuple(sorted(required - {"local_base"}))
+        eligible = tuple(
+            label
+            for label in candidate_labels
+            if (
+                base_loss - float(losses[label])
+                > self.settings.local_distance_minimum_loss_improvement
+                and self._local_horizon_improves(label, horizon_losses)
+            )
+        )
+        label = min(
+            eligible or candidate_labels, key=lambda key: float(losses[key])
+        )
         candidate_loss = float(losses[label])
         improvement = base_loss - candidate_loss
-        accepted = bool(
+        candidate_valid = label in eligible
+        previous_distance = self.local_distance_log_offsets.detach().clone()
+        previous_shape = self.local_shape_log_offsets.detach().clone()
+        selected_axis = (
+            self.local_material_pending_axis
+            if label == "local_confirm"
+            else (
+                "local_shape"
+                if label.startswith("local_shape")
+                else "local_distance"
+            )
+        )
+        accepted = False
+        staged = False
+        confirmation = "local_confirm" in required
+        status = "no_h3_improvement"
+        if (
             improvement
             > self.settings.local_distance_minimum_loss_improvement
-        )
-        previous = self.local_distance_log_offsets.detach().clone()
-        if accepted:
+            and not self._local_horizon_improves(label, horizon_losses)
+        ):
+            status = "no_h3_tail_improvement"
+        if self.settings.local_cross_window_confirmation and confirmation:
+            accepted = candidate_valid
+            if accepted:
+                assert self._staged_local_distance_offsets is not None
+                assert self._staged_local_shape_offsets is not None
+                self.local_distance_log_offsets.copy_(
+                    self._staged_local_distance_offsets
+                )
+                self.local_shape_log_offsets.copy_(
+                    self._staged_local_shape_offsets
+                )
+                if selected_axis == "local_distance":
+                    self.local_distance_update_count += 1
+                elif selected_axis == "local_shape":
+                    self.local_shape_update_count += 1
+                status = "accepted_cross_window"
+            else:
+                status = "cross_window_rejected"
+            self._staged_local_distance_offsets = None
+            self._staged_local_shape_offsets = None
+            self._staged_local_axis = None
+            self._staged_local_destination_frame = None
+        elif self.settings.local_cross_window_confirmation:
+            if candidate_valid:
+                if destination_frame is None:
+                    raise ValueError(
+                        "Cross-window local proposal requires a destination frame"
+                    )
+                self._staged_local_distance_offsets = (
+                    self._pending_local_distance_offsets[label].detach().clone()
+                )
+                self._staged_local_shape_offsets = (
+                    self._pending_local_shape_offsets[label].detach().clone()
+                )
+                self._staged_local_axis = selected_axis
+                self._staged_local_destination_frame = int(destination_frame)
+                self.local_material_proposal_count += 1
+                staged = True
+                status = "awaiting_cross_window_confirmation"
+        elif candidate_valid:
+            accepted = True
             self.local_distance_log_offsets.copy_(
                 self._pending_local_distance_offsets[label]
             )
-            self.local_distance_update_count += 1
-        actual_step = self.local_distance_log_offsets - previous
+            self.local_shape_log_offsets.copy_(
+                self._pending_local_shape_offsets[label]
+            )
+            if selected_axis == "local_distance":
+                self.local_distance_update_count += 1
+            elif selected_axis == "local_shape":
+                self.local_shape_update_count += 1
+            status = "accepted"
+        actual_distance_step = (
+            self.local_distance_log_offsets - previous_distance
+        )
+        actual_shape_step = self.local_shape_log_offsets - previous_shape
         self._pending_local_distance_offsets.clear()
+        self._pending_local_shape_offsets.clear()
         distance, shape = self.current_material()
-        active = self.local_distance_log_offsets[self._global_material_mask]
+        active_distance = self.local_distance_log_offsets[
+            self._global_material_mask
+        ]
+        active_shape = self.local_shape_log_offsets[
+            self._global_material_mask
+        ]
         metrics: dict[str, float | int | str] = {
-            "local_distance_status": (
-                "accepted" if accepted else "no_h3_improvement"
-            ),
+            "local_material_status": status,
+            "local_distance_status": status,
             "local_distance_selected_trial": label,
+            "local_material_selected_axis": selected_axis,
             "local_distance_base_loss": base_loss,
             "local_distance_candidate_loss": candidate_loss,
             "local_distance_loss_improvement": float(improvement),
+            "local_material_tail_improved": int(
+                self._local_horizon_improves(label, horizon_losses)
+            ),
+            "local_material_cross_window_confirmation": int(confirmation),
+            "local_material_proposal_staged": int(staged),
+            "local_material_confirmation_pending": int(
+                self.local_material_confirmation_pending
+            ),
+            "local_material_pending_axis": self.local_material_pending_axis,
+            "local_material_pending_destination_frame": (
+                self.local_material_pending_destination_frame
+            ),
+            "local_material_proposal_count": int(
+                self.local_material_proposal_count
+            ),
             "local_distance_update_count": int(
                 self.local_distance_update_count
             ),
+            "local_shape_update_count": int(self.local_shape_update_count),
             "local_distance_step_maximum": float(
-                actual_step.abs().max().item()
+                actual_distance_step.abs().max().item()
             ),
-            "local_distance_log_minimum": float(active.min().item()),
-            "local_distance_log_mean": float(active.mean().item()),
-            "local_distance_log_maximum": float(active.max().item()),
+            "local_shape_step_maximum": float(
+                actual_shape_step.abs().max().item()
+            ),
+            "local_distance_log_minimum": float(active_distance.min().item()),
+            "local_distance_log_mean": float(active_distance.mean().item()),
+            "local_distance_log_maximum": float(active_distance.max().item()),
+            "local_shape_log_minimum": float(active_shape.min().item()),
+            "local_shape_log_mean": float(active_shape.mean().item()),
+            "local_shape_log_maximum": float(active_shape.max().item()),
             "local_distance_global_mean_preserved": int(
-                abs(float(active.mean().item())) <= 1.0e-7
+                abs(float(active_distance.mean().item())) <= 1.0e-7
+            ),
+            "local_shape_global_mean_preserved": int(
+                abs(float(active_shape.mean().item())) <= 1.0e-7
             ),
         }
         return distance.detach(), shape.detach(), metrics

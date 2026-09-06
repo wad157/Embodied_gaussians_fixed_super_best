@@ -1351,6 +1351,15 @@ def parse_args() -> argparse.Namespace:
         ),
     )
     parser.add_argument(
+        "--trajectory-rgb-residual-enabled",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help=(
+            "是否在AllTracker/depth轨迹修正之后执行RGB位置微残差；"
+            "关闭后会完整跳过RGB求解以及位置、速度回写。"
+        ),
+    )
+    parser.add_argument(
         "--trajectory-rgb-residual-track-weight",
         type=float,
         default=0.02,
@@ -1606,6 +1615,18 @@ def parse_args() -> argparse.Namespace:
         ),
     )
     parser.add_argument(
+        "--paper-stiffness-reconstruction-global-log-offset",
+        type=float,
+        default=0.15,
+        help="Reconstruction全局H3累计log偏移上限，默认±0.15。",
+    )
+    parser.add_argument(
+        "--paper-stiffness-future-global-log-offset",
+        type=float,
+        default=0.35,
+        help="Future训练区间全局H3累计log偏移上限，默认±0.35。",
+    )
+    parser.add_argument(
         "--paper-stiffness-local-distance",
         action=argparse.BooleanOptionalAction,
         default=False,
@@ -1628,6 +1649,45 @@ def parse_args() -> argparse.Namespace:
         type=float,
         default=1.0e-6,
         help="局部候选相对全局H3基线所需的最小损失下降。",
+    )
+    parser.add_argument(
+        "--paper-stiffness-local-shape",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help=(
+            "让零均值局部shape候选与局部distance候选分轴竞争；"
+            "不会改变全局shape均值。"
+        ),
+    )
+    parser.add_argument(
+        "--paper-stiffness-local-shape-log-step",
+        type=float,
+        default=0.008,
+        help="局部shape场每次H3提案的最大log步长，默认0.008。",
+    )
+    parser.add_argument(
+        "--paper-stiffness-local-shape-log-offset",
+        type=float,
+        default=0.04,
+        help="零均值局部shape场累计log范围，默认±0.04。",
+    )
+    parser.add_argument(
+        "--paper-stiffness-local-cross-window-confirmation",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help=(
+            "局部候选先在当前H3选方向，再在不重叠的后续H3确认；"
+            "确认前不写入实时材料场。"
+        ),
+    )
+    parser.add_argument(
+        "--paper-stiffness-local-tail-relative-tolerance",
+        type=float,
+        default=0.001,
+        help=(
+            "局部候选H2/H3单点允许的相对数值噪声；"
+            "两帧加权目标仍必须下降。"
+        ),
     )
     parser.add_argument(
         "--stiffness-rejected-ema-keep-ratio",
@@ -2208,6 +2268,7 @@ class SuperPlaybackControls:
         flow_depth_observations: FlowDepthObservationSequence | None = None,
         flow_depth_settings: FlowDepthStateUpdateSettings | None = None,
         visual_residual_gain_profile: str = "full_only",
+        trajectory_rgb_residual_enabled: bool = True,
         trajectory_rgb_residual_track_weight: float = 0.02,
         trajectory_rgb_residual_position_gain: float = 1.0,
         trajectory_rgb_residual_velocity_gain: float = 0.15,
@@ -2291,6 +2352,9 @@ class SuperPlaybackControls:
             raise ValueError("Visual-force update interval must be at least one")
         self._visual_force_step = self.visual_force_update_interval - 1
         self.visual_feedback_mode = str(visual_feedback_mode)
+        self.trajectory_rgb_residual_enabled = bool(
+            trajectory_rgb_residual_enabled
+        )
         if self.visual_feedback_mode not in {
             "trajectory",
             "trajectory_residual",
@@ -2332,7 +2396,10 @@ class SuperPlaybackControls:
         self.flow_depth_settings.validate()
         self._trajectory_rgb_particle_indices: torch.Tensor | None = None
         self._trajectory_rgb_particle_weights: torch.Tensor | None = None
-        if self.visual_feedback_mode == "trajectory_residual":
+        if (
+            self.visual_feedback_mode == "trajectory_residual"
+            and self.trajectory_rgb_residual_enabled
+        ):
             assert flow_depth_bindings is not None
             assert visual_residual_mapper is not None
             residual_device = visual_residual_mapper.rest_positions.device
@@ -2478,6 +2545,7 @@ class SuperPlaybackControls:
                     ),
                     "trajectory_rgb_residual_enabled": (
                         self.visual_feedback_mode == "trajectory_residual"
+                        and self.trajectory_rgb_residual_enabled
                     ),
                     "trajectory_rgb_residual_track_weight": (
                         self.trajectory_rgb_residual_track_weight
@@ -9538,7 +9606,10 @@ class SuperPlaybackControls:
             )
             if (
                 optimizer_metrics.get("status") == "sim_global_updated"
-                and optimizer.settings.local_distance_enabled
+                and (
+                    optimizer.settings.local_distance_enabled
+                    or optimizer.settings.local_shape_enabled
+                )
             ):
                 supervised_observations = tuple(
                     observation
@@ -9570,10 +9641,13 @@ class SuperPlaybackControls:
                     local_raw, local_support
                 )
                 local_trials = optimizer.begin_local_distance_observation(
-                    local_direction
+                    local_direction,
+                    source_frame=int(causal_observations[0].source_frame),
+                    destination_frame=int(destination_frame),
                 )
                 if local_trials:
                     local_losses: dict[str, float] = {}
+                    local_horizon_losses: dict[str, tuple[float, ...]] = {}
                     for local_trial in local_trials:
                         local_horizon_values = (
                             self._paper_adam_causal_open_loop_track_losses(
@@ -9613,6 +9687,10 @@ class SuperPlaybackControls:
                             ),
                         )
                         local_losses[local_trial.label] = local_total_loss
+                        local_horizon_losses[local_trial.label] = tuple(
+                            float(value["track_loss"])
+                            for value in local_horizon_values
+                        )
                         verbose_trial_losses[local_trial.label] = {
                             "track_loss": local_track_loss,
                             "distance_smooth_loss": distance_smooth,
@@ -9625,25 +9703,69 @@ class SuperPlaybackControls:
                         }
                     distance, shape, local_metrics = (
                         optimizer.finish_local_distance_observation(
-                            local_losses
+                            local_losses,
+                            horizon_losses=local_horizon_losses,
+                            destination_frame=int(destination_frame),
                         )
                     )
                     optimizer_metrics.update(local_metrics)
                 else:
+                    waiting_for_independent_window = bool(
+                        optimizer.local_material_confirmation_pending
+                    )
                     optimizer_metrics.update(
-                        local_distance_status="no_observable_direction",
+                        local_material_status=(
+                            "awaiting_independent_window"
+                            if waiting_for_independent_window
+                            else "no_observable_direction"
+                        ),
+                        local_distance_status=(
+                            "awaiting_independent_window"
+                            if waiting_for_independent_window
+                            else "no_observable_direction"
+                        ),
                         local_distance_update_count=(
                             optimizer.local_distance_update_count
                         ),
+                        local_shape_update_count=(
+                            optimizer.local_shape_update_count
+                        ),
+                        local_material_confirmation_pending=int(
+                            waiting_for_independent_window
+                        ),
+                        local_material_pending_axis=(
+                            optimizer.local_material_pending_axis
+                        ),
+                        local_material_pending_destination_frame=(
+                            optimizer.local_material_pending_destination_frame
+                        ),
                         local_distance_global_mean_preserved=1,
+                        local_shape_global_mean_preserved=1,
                     )
-            elif optimizer.settings.local_distance_enabled:
+            elif (
+                optimizer.settings.local_distance_enabled
+                or optimizer.settings.local_shape_enabled
+            ):
                 optimizer_metrics.update(
+                    local_material_status="global_h3_not_updated",
                     local_distance_status="global_h3_not_updated",
                     local_distance_update_count=(
                         optimizer.local_distance_update_count
                     ),
+                    local_shape_update_count=(
+                        optimizer.local_shape_update_count
+                    ),
+                    local_material_confirmation_pending=int(
+                        optimizer.local_material_confirmation_pending
+                    ),
+                    local_material_pending_axis=(
+                        optimizer.local_material_pending_axis
+                    ),
+                    local_material_pending_destination_frame=(
+                        optimizer.local_material_pending_destination_frame
+                    ),
                     local_distance_global_mean_preserved=1,
+                    local_shape_global_mean_preserved=1,
                 )
         finally:
             self._synchronize_shadow_transaction(sim)
@@ -10553,7 +10675,10 @@ class SuperPlaybackControls:
         causal for both reconstruction holdouts and the 80/20 future split.
         """
 
-        if self.visual_feedback_mode != "trajectory_residual":
+        if (
+            self.visual_feedback_mode != "trajectory_residual"
+            or not self.trajectory_rgb_residual_enabled
+        ):
             return None
         frame_index = int(self.current_frame_index)
         if frame_index <= self._last_trajectory_rgb_residual_frame_index:
@@ -12525,6 +12650,7 @@ async def main(
     visual_residual_temporal_weight: float,
     visual_residual_magnitude_weight: float,
     visual_residual_gain_profile: str,
+    trajectory_rgb_residual_enabled: bool,
     trajectory_rgb_residual_track_weight: float,
     trajectory_rgb_residual_position_gain: float,
     trajectory_rgb_residual_velocity_gain: float,
@@ -12562,10 +12688,17 @@ async def main(
     paper_stiffness_minimum_axis_loss_difference: float,
     paper_stiffness_sim_global_causal: bool,
     paper_stiffness_three_of_four_h3: bool,
+    paper_stiffness_reconstruction_global_log_offset: float,
+    paper_stiffness_future_global_log_offset: float,
     paper_stiffness_local_distance: bool,
     paper_stiffness_local_distance_log_step: float,
     paper_stiffness_local_distance_log_offset: float,
     paper_stiffness_local_distance_minimum_improvement: float,
+    paper_stiffness_local_shape: bool,
+    paper_stiffness_local_shape_log_step: float,
+    paper_stiffness_local_shape_log_offset: float,
+    paper_stiffness_local_cross_window_confirmation: bool,
+    paper_stiffness_local_tail_relative_tolerance: float,
     stiffness_evaluation_output: Path | None,
     stiffness_evaluation_horizons: tuple[int, ...],
     evaluation_headless: bool,
@@ -12995,6 +13128,21 @@ async def main(
                             local_distance_minimum_loss_improvement=(
                                 paper_stiffness_local_distance_minimum_improvement
                             ),
+                            local_shape_enabled=(
+                                paper_stiffness_local_shape
+                            ),
+                            local_shape_maximum_log_step=(
+                                paper_stiffness_local_shape_log_step
+                            ),
+                            local_shape_maximum_log_offset=(
+                                paper_stiffness_local_shape_log_offset
+                            ),
+                            local_cross_window_confirmation=(
+                                paper_stiffness_local_cross_window_confirmation
+                            ),
+                            local_tail_relative_tolerance=(
+                                paper_stiffness_local_tail_relative_tolerance
+                            ),
                             h2_updates_enabled=(
                                 tissue_benchmark_protocol
                                 != "reconstruction_7to1"
@@ -13010,10 +13158,10 @@ async def main(
                                 else None
                             ),
                             global_maximum_log_offset=(
-                                0.15
+                                paper_stiffness_reconstruction_global_log_offset
                                 if tissue_benchmark_protocol
                                 == "reconstruction_7to1"
-                                else 0.35
+                                else paper_stiffness_future_global_log_offset
                             ),
                             velocity_damping_initial_per_second=float(
                                 environment.physics_settings
@@ -13103,6 +13251,7 @@ async def main(
         flow_depth_observations=flow_depth_observations,
         flow_depth_settings=flow_depth_settings,
         visual_residual_gain_profile=visual_residual_gain_profile,
+        trajectory_rgb_residual_enabled=trajectory_rgb_residual_enabled,
         trajectory_rgb_residual_track_weight=(
             trajectory_rgb_residual_track_weight
         ),
@@ -13286,6 +13435,7 @@ if __name__ == "__main__":
         args.visual_residual_temporal_weight,
         args.visual_residual_magnitude_weight,
         args.visual_residual_gain_profile,
+        args.trajectory_rgb_residual_enabled,
         args.trajectory_rgb_residual_track_weight,
         args.trajectory_rgb_residual_position_gain,
         args.trajectory_rgb_residual_velocity_gain,
@@ -13323,10 +13473,17 @@ if __name__ == "__main__":
         args.paper_stiffness_minimum_axis_loss_difference,
         args.paper_stiffness_sim_global_causal,
         args.paper_stiffness_three_of_four_h3,
+        args.paper_stiffness_reconstruction_global_log_offset,
+        args.paper_stiffness_future_global_log_offset,
         args.paper_stiffness_local_distance,
         args.paper_stiffness_local_distance_log_step,
         args.paper_stiffness_local_distance_log_offset,
         args.paper_stiffness_local_distance_minimum_improvement,
+        args.paper_stiffness_local_shape,
+        args.paper_stiffness_local_shape_log_step,
+        args.paper_stiffness_local_shape_log_offset,
+        args.paper_stiffness_local_cross_window_confirmation,
+        args.paper_stiffness_local_tail_relative_tolerance,
         args.stiffness_evaluation_output,
         stiffness_evaluation_horizons,
         args.evaluation_headless,
