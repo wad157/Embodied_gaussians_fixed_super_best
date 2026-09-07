@@ -1,5 +1,10 @@
 # 较软参数强 H3：三次重复评估记录
 
+> 历史记录说明：三次运行的 Future 使用正确的训练前缀 f2，结果仍作为当前 Future
+> 统计；但 Reconstruction f1 资产只覆盖 frame `0..1150`，并未覆盖完整 `0..1439`，
+> 因此 Reconstruction 数值已由完整 f1 评估替代，不能再作为正式 Reconstruction 结果。
+> 当前口径见 [CURRENT_F1_F2_EVALUATION.md](CURRENT_F1_F2_EVALUATION.md)。
+
 ## 固定配置
 
 - `distance=0.01`

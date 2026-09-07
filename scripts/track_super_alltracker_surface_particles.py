@@ -74,6 +74,17 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--image-size", type=int, default=1024)
     parser.add_argument("--window-length", type=int, default=16)
     parser.add_argument(
+        "--primary-segment-length",
+        type=int,
+        default=0,
+        help=(
+            "Maximum sampled-frame span of one primary AllTracker call. "
+            "Zero keeps the original single long-range call. Positive values "
+            "continue from the shared boundary-frame query and avoid PyTorch's "
+            "32-bit tensor-index limit on long stride-1 videos."
+        ),
+    )
+    parser.add_argument(
         "--reanchor-interval",
         type=int,
         default=32,
@@ -433,6 +444,7 @@ def main() -> None:
     if (
         args.frame_stride < 1
         or args.window_length < 2
+        or args.primary_segment_length < 0
         or args.reanchor_interval < 2
         or args.cross_anchor_agreement_scale_px <= 0.0
         or args.query_spacing_px < 2
@@ -440,7 +452,8 @@ def main() -> None:
         or args.maximum_queries_per_particle < 0
     ):
         raise ValueError(
-            "Frame stride, window length and reanchor interval must be positive"
+            "Frame stride, window length and reanchor interval must be positive; "
+            "primary segment length must be non-negative"
         )
     if not torch.cuda.is_available():
         raise RuntimeError("AllTracker surface tracking requires CUDA")
@@ -551,24 +564,72 @@ def main() -> None:
     sampled_frame_count = int(rgbs.shape[1])
     query_model = query_xy.astype(np.float32)
     primary_started = time.perf_counter()
-    with torch.inference_mode(), torch.autocast(
-        device_type="cuda", dtype=torch.bfloat16
+    primary_segment_count = 1
+    if (
+        args.primary_segment_length > 0
+        and args.primary_segment_length < sampled_frame_count - 1
     ):
-        primary_flows, primary_visconfs, _, _ = model.forward_sliding(
-            rgbs,
-            iters=args.inference_iterations,
-            sw=None,
-            is_training=False,
+        primary_tracks_model = np.zeros(
+            (sampled_frame_count, len(query_xy), 2), dtype=np.float32
         )
-    primary_flow = sample_dense_maps_at_points(
-        primary_flows[0], query_model
-    )
-    sampled_visconf = sample_dense_maps_at_points(
-        primary_visconfs[0], query_model
-    )
-    primary_tracks_model = query_model[None] + primary_flow
+        sampled_visconf = np.zeros(
+            (sampled_frame_count, len(query_xy), 2), dtype=np.float32
+        )
+        primary_tracks_model[0] = query_model
+        primary_anchor_model = query_model.copy()
+        primary_segment_count = 0
+        primary_segment_start = 0
+        with torch.inference_mode(), torch.autocast(
+            device_type="cuda", dtype=torch.bfloat16
+        ):
+            while primary_segment_start < sampled_frame_count - 1:
+                primary_segment_end = min(
+                    sampled_frame_count - 1,
+                    primary_segment_start + args.primary_segment_length,
+                )
+                primary_flows, primary_visconfs, _, _ = model.forward_sliding(
+                    rgbs[:, primary_segment_start : primary_segment_end + 1],
+                    iters=args.inference_iterations,
+                    sw=None,
+                    is_training=False,
+                )
+                primary_flow = sample_dense_maps_at_points(
+                    primary_flows[0], primary_anchor_model
+                )
+                local_visconf = sample_dense_maps_at_points(
+                    primary_visconfs[0], primary_anchor_model
+                )
+                local_tracks = primary_anchor_model[None] + primary_flow
+                write_start = 0 if primary_segment_start == 0 else 1
+                output_slice = slice(
+                    primary_segment_start + write_start,
+                    primary_segment_end + 1,
+                )
+                primary_tracks_model[output_slice] = local_tracks[write_start:]
+                sampled_visconf[output_slice] = local_visconf[write_start:]
+                primary_anchor_model = local_tracks[-1].astype(np.float32)
+                primary_segment_start = primary_segment_end
+                primary_segment_count += 1
+                del primary_flows, primary_visconfs, primary_flow
+    else:
+        with torch.inference_mode(), torch.autocast(
+            device_type="cuda", dtype=torch.bfloat16
+        ):
+            primary_flows, primary_visconfs, _, _ = model.forward_sliding(
+                rgbs,
+                iters=args.inference_iterations,
+                sw=None,
+                is_training=False,
+            )
+        primary_flow = sample_dense_maps_at_points(
+            primary_flows[0], query_model
+        )
+        sampled_visconf = sample_dense_maps_at_points(
+            primary_visconfs[0], query_model
+        )
+        primary_tracks_model = query_model[None] + primary_flow
+        del primary_flows, primary_visconfs, primary_flow
     primary_elapsed = time.perf_counter() - primary_started
-    del primary_flows, primary_visconfs, primary_flow
 
     reanchored_tracks_model = np.zeros(
         (sampled_frame_count, len(query_xy), 2), dtype=np.float32
@@ -778,6 +839,10 @@ def main() -> None:
             "maximum_source_frame": args.maximum_source_frame,
             "image_size": args.image_size,
             "window_length": args.window_length,
+            "primary_segment_length_sampled_frames": (
+                args.primary_segment_length
+            ),
+            "primary_segment_count": primary_segment_count,
             "reanchor_interval_sampled_frames": args.reanchor_interval,
             "reanchor_interval_source_frames": (
                 args.reanchor_interval * args.frame_stride

@@ -8,15 +8,32 @@ TRAJECTORY_BASELINE_ROOT="${2:-}"
 EXECUTION_MODE="${3:-parallel}"
 TRAJECTORY_RGB_RESIDUAL_ENABLED="${4:-${TRAJECTORY_RGB_RESIDUAL_ENABLED:-1}}"
 BASELINE_ROOT="${BASELINE_ROOT:-${ROOT_DIR}/outputs/super_paper_trajectory_adam_three_way_full_metrics_20260830_v1}"
-GROUND_TRUTH="${ROOT_DIR}/data/super/evaluation_v1/manual_tissue_tracks_10/ground_truth_2d3d_v1.npz"
-RECONSTRUCTION_BINDINGS="${RECONSTRUCTION_BINDINGS:-${ROOT_DIR}/outputs/grasp5_alltracker_tissue_grid20_q3_triangle_d1_f1_20260831_v2/bindings.npz}"
-RECONSTRUCTION_OBSERVATIONS="${RECONSTRUCTION_OBSERVATIONS:-${ROOT_DIR}/outputs/grasp5_alltracker_tissue_grid20_q3_triangle_observations_f1_20260831_v2/observations.npz}"
+GROUND_TRUTH="${GROUND_TRUTH:-${ROOT_DIR}/data/super/evaluation_v1/manual_tissue_tracks_10/ground_truth_2d3d_v1.npz}"
+GROUND_TRUTH_ROOT="${GROUND_TRUTH_ROOT:-$(dirname "${GROUND_TRUTH}")}"
+SUPER_DATASET="${SUPER_DATASET:-grasp5}"
+OFFLINE_DATASET="${OFFLINE_DATASET:-${ROOT_DIR}/data/super/grasp5_offline_demo}"
+CAMERA_FILE="${CAMERA_FILE:-}"
+PSM_POSE_DRIVER_PATH="${PSM_POSE_DRIVER_PATH:-}"
+PSM_ASSET_ROOT="${PSM_ASSET_ROOT:-}"
+PSM_RAW_MODEL_PATH="${PSM_RAW_MODEL_PATH:-}"
+TISSUE_ASSET="${TISSUE_ASSET:-}"
+VISUAL_MASK_LEFT="${VISUAL_MASK_LEFT:-}"
+VISUAL_MASK_RIGHT="${VISUAL_MASK_RIGHT:-}"
+INSTRUMENT_MASK_ASSET="${INSTRUMENT_MASK_ASSET:-}"
+EVALUATION_FRAME_COUNT="${EVALUATION_FRAME_COUNT:-1440}"
+FUTURE_TEST_START_FRAME="${FUTURE_TEST_START_FRAME:-}"
+RECONSTRUCTION_BINDINGS="${RECONSTRUCTION_BINDINGS:-${ROOT_DIR}/outputs/grasp5_alltracker_full_f1_0_1439_20260906_v2/bindings/bindings.npz}"
+RECONSTRUCTION_OBSERVATIONS="${RECONSTRUCTION_OBSERVATIONS:-${ROOT_DIR}/outputs/grasp5_alltracker_full_f1_0_1439_20260906_v2/observations/observations.npz}"
 FUTURE_BINDINGS="${FUTURE_BINDINGS:-${ROOT_DIR}/outputs/grasp5_alltracker_tissue_grid20_q3_triangle_d1_f2_20260829_v1/bindings.npz}"
 FUTURE_OBSERVATIONS="${FUTURE_OBSERVATIONS:-${ROOT_DIR}/outputs/grasp5_alltracker_tissue_grid20_q3_triangle_observations_20260829_v1/observations.npz}"
 RERUN_RECONSTRUCTION_TRAJECTORY="${RERUN_RECONSTRUCTION_TRAJECTORY:-1}"
 RERUN_FUTURE_TRAJECTORY="${RERUN_FUTURE_TRAJECTORY:-0}"
 RERUN_PURE_PBD="${RERUN_PURE_PBD:-0}"
 RUN_ONLY_PURE_PBD="${RUN_ONLY_PURE_PBD:-0}"
+RUN_RECONSTRUCTION="${RUN_RECONSTRUCTION:-1}"
+RUN_FUTURE="${RUN_FUTURE:-1}"
+RECONSTRUCTION_OBSERVATION_SCHEDULE="${RECONSTRUCTION_OBSERVATION_SCHEDULE:-stride1_full_0_1439}"
+FUTURE_OBSERVATION_SCHEDULE="${FUTURE_OBSERVATION_SCHEDULE:-stride2_v9_frozen_policy}"
 GPU_RECONSTRUCTION="${GPU_RECONSTRUCTION:-0}"
 GPU_FUTURE="${GPU_FUTURE:-1}"
 TRAJECTORY_RGB_POSITION_GAIN="${TRAJECTORY_RGB_POSITION_GAIN:-1.0}"
@@ -69,6 +86,18 @@ if [[ "${RUN_ONLY_PURE_PBD}" == "1" && "${RERUN_PURE_PBD}" != "1" ]]; then
     printf 'RUN_ONLY_PURE_PBD requires RERUN_PURE_PBD=1\n' >&2
     exit 2
 fi
+if [[ "${RUN_RECONSTRUCTION}" != "0" && "${RUN_RECONSTRUCTION}" != "1" ]]; then
+    printf 'RUN_RECONSTRUCTION must be 0 or 1\n' >&2
+    exit 2
+fi
+if [[ "${RUN_FUTURE}" != "0" && "${RUN_FUTURE}" != "1" ]]; then
+    printf 'RUN_FUTURE must be 0 or 1\n' >&2
+    exit 2
+fi
+if [[ "${RUN_RECONSTRUCTION}" == "0" && "${RUN_FUTURE}" == "0" ]]; then
+    printf 'At least one evaluation protocol must be enabled\n' >&2
+    exit 2
+fi
 if [[ -e "${OUTPUT_ROOT}" ]]; then
     printf 'Refusing reused output root: %s\n' "${OUTPUT_ROOT}" >&2
     exit 2
@@ -77,6 +106,42 @@ if [[ "${EXECUTION_MODE}" != "parallel" && "${EXECUTION_MODE}" != "serial" ]]; t
     printf 'Execution mode must be parallel or serial: %s\n' \
         "${EXECUTION_MODE}" >&2
     exit 2
+fi
+
+dataset_runtime_args=(
+    --dataset "${OFFLINE_DATASET}"
+    --super-dataset "${SUPER_DATASET}"
+)
+if [[ -n "${CAMERA_FILE}" ]]; then
+    dataset_runtime_args+=(--camera-file "${CAMERA_FILE}")
+fi
+if [[ -n "${PSM_POSE_DRIVER_PATH}" ]]; then
+    dataset_runtime_args+=(--psm-pose-driver-path "${PSM_POSE_DRIVER_PATH}")
+fi
+if [[ -n "${PSM_ASSET_ROOT}" ]]; then
+    dataset_runtime_args+=(--psm-asset-root "${PSM_ASSET_ROOT}")
+fi
+if [[ -n "${PSM_RAW_MODEL_PATH}" ]]; then
+    dataset_runtime_args+=(--psm-raw-model-path "${PSM_RAW_MODEL_PATH}")
+fi
+if [[ -n "${TISSUE_ASSET}" ]]; then
+    dataset_runtime_args+=(--tissue-asset "${TISSUE_ASSET}")
+fi
+if [[ -n "${VISUAL_MASK_LEFT}" ]]; then
+    dataset_runtime_args+=(--visual-mask-left "${VISUAL_MASK_LEFT}")
+fi
+if [[ -n "${VISUAL_MASK_RIGHT}" ]]; then
+    dataset_runtime_args+=(--visual-mask-right "${VISUAL_MASK_RIGHT}")
+fi
+if [[ -n "${INSTRUMENT_MASK_ASSET}" ]]; then
+    dataset_runtime_args+=(--instrument-mask-asset "${INSTRUMENT_MASK_ASSET}")
+fi
+benchmark_runtime_args=()
+if [[ -n "${FUTURE_TEST_START_FRAME}" ]]; then
+    benchmark_runtime_args+=(
+        --tissue-benchmark-future-test-start-frame
+        "${FUTURE_TEST_START_FRAME}"
+    )
 fi
 
 mkdir -p "${OUTPUT_ROOT}"
@@ -150,12 +215,12 @@ printf '%s\n' \
     'trajectory_gaussian_future_feedback=OFF' \
     >> "${OUTPUT_ROOT}/RUN_CONFIGURATION.txt"
 printf '%s\n' \
-    'reconstruction_observations=stride1' \
+    "reconstruction_observations=${RECONSTRUCTION_OBSERVATION_SCHEDULE}" \
     'reconstruction_stiffness=one_nonoverlapping_H3_per_7to1_training_block' \
     'reconstruction_h2_updates=OFF' \
     'reconstruction_h3_tail_H2_cosine_minimum=0.90' \
     'reconstruction_h3_cumulative_log_offset=0.15' \
-    'future_observations=stride2_v9_frozen_policy' \
+    "future_observations=${FUTURE_OBSERVATION_SCHEDULE}" \
     'future_stiffness=available_H2_to_H3_v9' \
     'stiffness_horizon_weights=1.5,2,3' \
     'stiffness_h2_step_scale=3.5/6.5' \
@@ -186,8 +251,19 @@ printf 'execution_mode=%s\n' "${EXECUTION_MODE}" \
 printf 'rerun_pure_pbd=%s\nrun_only_pure_pbd=%s\n' \
     "${RERUN_PURE_PBD}" "${RUN_ONLY_PURE_PBD}" \
     >> "${OUTPUT_ROOT}/RUN_CONFIGURATION.txt"
+printf 'run_reconstruction=%s\nrun_future=%s\n' \
+    "${RUN_RECONSTRUCTION}" "${RUN_FUTURE}" \
+    >> "${OUTPUT_ROOT}/RUN_CONFIGURATION.txt"
+printf '%s\n' \
+    "super_dataset=${SUPER_DATASET}" \
+    "offline_dataset=${OFFLINE_DATASET}" \
+    "ground_truth=${GROUND_TRUTH}" \
+    "evaluation_frame_count=${EVALUATION_FRAME_COUNT}" \
+    "future_test_start_frame=${FUTURE_TEST_START_FRAME:-from_frozen_gt}" \
+    >> "${OUTPUT_ROOT}/RUN_CONFIGURATION.txt"
 
 "${ENV_PREFIX}/bin/python" scripts/audit_super_evaluation_protocol.py \
+    --root "${GROUND_TRUTH_ROOT}" \
     --report "${OUTPUT_ROOT}/PROTOCOL_AUDIT.json" \
     > "${OUTPUT_ROOT}/protocol_audit.log" 2>&1
 
@@ -265,15 +341,17 @@ run_case() {
     CUDA_VISIBLE_DEVICES="${gpu_id}" \
         TORCH_EXTENSIONS_DIR="/Media_HDD/jwshan/tmp/torch_extensions_alltracker_rgb_observable_gpu${gpu_id}" \
         "${ENV_PREFIX}/bin/python" examples/example_embodied_super_offline.py \
+        "${dataset_runtime_args[@]}" \
         --evaluation-headless \
         --evaluation-start-frame 0 \
-        --evaluation-frame-count 1440 \
+        --evaluation-frame-count "${EVALUATION_FRAME_COUNT}" \
         --evaluation-physics-steps-per-frame 3 \
         --tissue-benchmark-output "${result_dir}" \
         --tissue-benchmark-ground-truth "${GROUND_TRUTH}" \
         --tissue-benchmark-protocol "${protocol}" \
         --tissue-benchmark-render-scale 0.5 \
         --tissue-benchmark-reconstruction-test-phase 0 \
+        "${benchmark_runtime_args[@]}" \
         --paper-distance-stiffness-initial "${PAPER_DISTANCE_STIFFNESS_INITIAL}" \
         --paper-volume-stiffness-initial "${PAPER_VOLUME_STIFFNESS_INITIAL}" \
         --paper-shape-stiffness-initial "${PAPER_SHAPE_STIFFNESS_INITIAL}" \
@@ -335,24 +413,36 @@ run_protocol_lane() {
 }
 
 set +e
+reconstruction_status=0
+future_status=0
 if [[ "${EXECUTION_MODE}" == "parallel" ]]; then
-    run_protocol_lane "${GPU_RECONSTRUCTION}" reconstruction_7to1 \
-        > "${OUTPUT_ROOT}/reconstruction_gpu${GPU_RECONSTRUCTION}.log" 2>&1 &
-    reconstruction_pid=$!
-    run_protocol_lane "${GPU_FUTURE}" future_80to20 \
-        > "${OUTPUT_ROOT}/future_gpu${GPU_FUTURE}.log" 2>&1 &
-    future_pid=$!
-    wait "${reconstruction_pid}"; reconstruction_status=$?
-    wait "${future_pid}"; future_status=$?
+    if [[ "${RUN_RECONSTRUCTION}" == "1" ]]; then
+        run_protocol_lane "${GPU_RECONSTRUCTION}" reconstruction_7to1 \
+            > "${OUTPUT_ROOT}/reconstruction_gpu${GPU_RECONSTRUCTION}.log" 2>&1 &
+        reconstruction_pid=$!
+    fi
+    if [[ "${RUN_FUTURE}" == "1" ]]; then
+        run_protocol_lane "${GPU_FUTURE}" future_80to20 \
+            > "${OUTPUT_ROOT}/future_gpu${GPU_FUTURE}.log" 2>&1 &
+        future_pid=$!
+    fi
+    if [[ "${RUN_RECONSTRUCTION}" == "1" ]]; then
+        wait "${reconstruction_pid}"; reconstruction_status=$?
+    fi
+    if [[ "${RUN_FUTURE}" == "1" ]]; then
+        wait "${future_pid}"; future_status=$?
+    fi
 else
-    run_protocol_lane "${GPU_RECONSTRUCTION}" reconstruction_7to1 \
-        > "${OUTPUT_ROOT}/reconstruction_gpu${GPU_RECONSTRUCTION}.log" 2>&1
-    reconstruction_status=$?
-    if [[ "${reconstruction_status}" -eq 0 ]]; then
+    if [[ "${RUN_RECONSTRUCTION}" == "1" ]]; then
+        run_protocol_lane "${GPU_RECONSTRUCTION}" reconstruction_7to1 \
+            > "${OUTPUT_ROOT}/reconstruction_gpu${GPU_RECONSTRUCTION}.log" 2>&1
+        reconstruction_status=$?
+    fi
+    if [[ "${RUN_FUTURE}" == "1" && "${reconstruction_status}" -eq 0 ]]; then
         run_protocol_lane "${GPU_FUTURE}" future_80to20 \
             > "${OUTPUT_ROOT}/future_gpu${GPU_FUTURE}.log" 2>&1
         future_status=$?
-    else
+    elif [[ "${RUN_FUTURE}" == "1" ]]; then
         future_status=125
     fi
 fi
@@ -371,10 +461,15 @@ if [[ "${RUN_ONLY_PURE_PBD}" == "1" ]]; then
     exit 0
 fi
 
-"${ENV_PREFIX}/bin/python" scripts/summarize_super_tissue_method_comparison.py \
-    --root "${OUTPUT_ROOT}" > "${OUTPUT_ROOT}/summary.log" 2>&1
-"${ENV_PREFIX}/bin/python" scripts/summarize_super_compact_tracking_rendering.py \
-    --root "${OUTPUT_ROOT}"
+if [[ "${RUN_RECONSTRUCTION}" == "1" && "${RUN_FUTURE}" == "1" ]]; then
+    "${ENV_PREFIX}/bin/python" scripts/summarize_super_tissue_method_comparison.py \
+        --root "${OUTPUT_ROOT}" > "${OUTPUT_ROOT}/summary.log" 2>&1
+    "${ENV_PREFIX}/bin/python" scripts/summarize_super_compact_tracking_rendering.py \
+        --root "${OUTPUT_ROOT}"
+else
+    printf 'Single-protocol run; cross-protocol summarizers skipped.\n' \
+        > "${OUTPUT_ROOT}/summary.log"
+fi
 printf 'complete\n' > "${OUTPUT_ROOT}/COMPLETE"
 printf 'AllTracker trajectory + RGB residual + observable Adam evaluation complete: %s\n' \
     "${OUTPUT_ROOT}"
