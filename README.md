@@ -10,6 +10,7 @@
 [原始论文](https://openreview.net/forum?id=AEq0onGrN2) ·
 [当前 f1/f2 结果](CURRENT_F1_F2_EVALUATION.md) ·
 [机器可读结果](results/super_grasp5_reconstruction_f1_future_f2_v1.csv) ·
+[grasp1/grasp3 三次评测](SUPER_GRASP1_GRASP3_EVALUATION.md) ·
 [历史三次重复记录](SOFT_H3_THREE_RUN_EVALUATION.md) ·
 [完整评测协议](SUPER物理重建与未来预测评估协议.md) ·
 [开发记录](PROGRESS.md)
