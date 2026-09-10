@@ -13,17 +13,21 @@
 
 ## 当前正式结果
 
-### Reconstruction 7:1，完整 f1，单次运行
+### Reconstruction 7:1，完整 f1，三次合并统计
 
 | 方法 | 3D (mm) ↓ | 2D (px) ↓ | PSNR (dB) ↑ | SSIM ↑ | LPIPS ↓ |
 |---|---:|---:|---:|---:|---:|
-| Pure PBD | 1.564633 | 27.167849 | **22.577172** | 0.779258 | **0.471489** |
-| PBD + trajectory | 0.887458 | 11.515281 | 22.327475 | 0.784531 | 0.476210 |
-| PBD + trajectory + strong H3 | **0.830815** | **10.906776** | 22.424175 | **0.784914** | 0.475716 |
+| Pure PBD | 1.5567 ± 0.0073 | 26.9999 ± 0.1897 | **22.5517 ± 0.0250** | 0.778532 ± 0.000666 | **0.473345 ± 0.001702** |
+| PBD + trajectory | 0.8300 ± 0.0604 | 11.4060 ± 0.5819 | 22.3312 ± 0.0274 | **0.784091 ± 0.000987** | 0.476360 ± 0.001918 |
+| PBD + trajectory + strong H3 | **0.8072 ± 0.0233** | **10.8082 ± 0.1885** | 22.3912 ± 0.0709 | 0.783667 ± 0.002033 | 0.477435 ± 0.002784 |
 
-完整性验收确认：轨迹、绑定和观测均严格覆盖 `0..1439`；三方法的 GT hash、tracking
-计划和180帧渲染分区全部通过。轨迹方法记录1439个 f1 事件，其中1080个训练转移被
-接受、359个与7:1留出帧相连的转移被禁止。H3 提交13次。
+强 H3 相对 trajectory 的3D/2D平均误差降低约 `2.7%/5.2%`，相对 Pure PBD 降低约
+`48.1%/60.0%`。轨迹、绑定和观测均严格覆盖 `0..1439`；三次结果的 GT hash、tracking
+计划和180帧渲染分区全部通过。
+
+按指定统计口径，该表合并了2026-09-06的完整f1正式结果一次和2026-09-10当前代码结果
+两次。旧结果与两个新结果的代码/完整配置哈希不同，因此这里报告的是指定口径下的
+合并均值与样本标准差，不宣称为完全相同代码的三次重复性实验。
 
 ### Future 80:20，训练前缀 f2，三次运行
 
@@ -54,6 +58,8 @@ Reconstruction，f2 用于更稳健的 Future 参数估计。
 机器可读汇总见
 [`results/super_grasp5_reconstruction_f1_future_f2_v1.csv`](results/super_grasp5_reconstruction_f1_future_f2_v1.csv)。
 
-本次完整 f1 capture 的本地来源为
-`outputs/super_grasp5_reconstruction_future_full_f1_soft_strong_h3_20260906_v2`；大型逐帧
-渲染、视频和模型 checkpoint 按仓库规则不提交，只提交汇总指标、验收器和复现脚本。
+完整 f1 capture 的本地来源为
+`outputs/super_grasp5_reconstruction_future_full_f1_soft_strong_h3_20260906_v2` 和
+`outputs/super_grasp5_reconstruction_full_f1_legacy_plus_two_20260910_v2/{run1,run2}`；
+大型逐帧渲染、视频和模型 checkpoint 按仓库规则不提交，只提交汇总指标、验收器和
+复现脚本。
