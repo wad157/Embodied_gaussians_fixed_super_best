@@ -9,6 +9,8 @@
 [原始 Embodied Gaussians 项目](https://embodied-gaussians.github.io/) ·
 [原始论文](https://openreview.net/forum?id=AEq0onGrN2) ·
 [grasp1/grasp3/grasp5 新 Joint 协议三次结果](SUPER_JOINT_GRASP135_EVALUATION.md) ·
+[EndoGaussian baseline 与结果](baselines.md) ·
+[EndoGaussian 机器可读结果](results/endogaussian_super_v1/) ·
 [当前 f1/f2 结果](CURRENT_F1_F2_EVALUATION.md) ·
 [机器可读结果](results/super_grasp5_reconstruction_f1_future_f2_v1.csv) ·
 [grasp1/grasp3 三次评测](SUPER_GRASP1_GRASP3_EVALUATION.md) ·
@@ -33,6 +35,36 @@
 关闭轨迹后 RGB residual、`3-of-4 H3`、累计局部刚度场以及 Gaussian 颜色/不透明度
 学习。Reconstruction 使用覆盖 `0..1439` 的完整 f1，Future 使用训练前缀内的 f2；
 二者不再共享同一个轨迹采样率。
+
+## EndoGaussian baseline
+
+当前已完成 EndoGaussian 在 SUPER `grasp5`、`grasp3`、`grasp1` 上的正式评测，
+每个数据集使用 seed 0、1、2 实际训练三次。官方代码固定到提交
+`8d12793838a1595b299df0696c8149c07329e980`，训练和变形模型保持原样；适配层只负责
+SUPER 数据、完整非中心主点相机、严格帧划分和统一结果导出。
+
+EndoGaussian 原代码没有点轨迹接口。当前导出器参考 Shape of Motion 提交
+`579753e1c7ba96f60cd7690e5b835627bd1935e9` 的查询几何属性光栅化方式，从冻结的
+EndoGaussian 高斯形变场读取轨迹。这里只采用解码设计，没有运行 Shape of Motion
+模型，也没有使用它的权重、轨迹、深度或 evaluator。
+
+正式协议为 `joint_reconstruction_7to1_future_80to20`：训练前 80% 中每八帧留出一帧
+做 Reconstruction，最后 20% 完全停止读取 RGB、深度、mask 和轨迹观测，直接评估
+EndoGaussian 原生时间变形场的 Future 外推。轨迹指标不做尺度、ICP、刚体对齐或后验
+校正。9 份报告均通过 GT 哈希、完整轨迹日程、观测留出和渲染分区检查。
+
+| 数据集 | 分区 | 3D (mm) ↓ | 2D (px) ↓ | PSNR (dB) ↑ | SSIM ↑ | LPIPS ↓ |
+|---|---|---:|---:|---:|---:|---:|
+| grasp5 | Reconstruction | 10.784 ± 1.285 | 26.116 ± 0.193 | 28.307 ± 0.015 | 0.8844 ± 0.0006 | 0.2713 ± 0.0008 |
+| grasp5 | Future | 10.482 ± 1.298 | 21.805 ± 0.035 | 26.700 ± 0.069 | 0.8356 ± 0.0010 | 0.2883 ± 0.0019 |
+| grasp3 | Reconstruction | 5.959 ± 0.831 | 27.187 ± 0.690 | 28.286 ± 0.010 | 0.8829 ± 0.0000 | 0.2681 ± 0.0010 |
+| grasp3 | Future | 5.193 ± 0.905 | 19.143 ± 0.376 | 27.029 ± 0.048 | 0.8494 ± 0.0019 | 0.2891 ± 0.0013 |
+| grasp1 | Reconstruction | 6.567 ± 1.071 | 28.490 ± 0.507 | 28.342 ± 0.023 | 0.8841 ± 0.0003 | 0.2759 ± 0.0012 |
+| grasp1 | Future | 6.183 ± 0.984 | 35.868 ± 0.421 | 27.401 ± 0.056 | 0.8512 ± 0.0018 | 0.2838 ± 0.0006 |
+
+数值为三次均值 ± 总体标准差。完整算法说明、数据版本和命令见
+[baseline 适配文档](baselines.md)，逐次 JSON、预测轨迹、协议审计和代表性视频见
+[EndoGaussian 结果目录](results/endogaussian_super_v1/)。
 
 ## 整体方法
 

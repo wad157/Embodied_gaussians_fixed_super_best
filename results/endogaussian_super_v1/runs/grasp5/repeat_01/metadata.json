@@ -1,0 +1,48 @@
+{
+  "schema": "super_tissue_physics_benchmark_v1",
+  "protocol": "joint_reconstruction_7to1_future_80to20",
+  "ground_truth": "data/super/evaluation_v1/manual_tissue_tracks_10/ground_truth_2d3d_v1.npz",
+  "ground_truth_sha256": "5f61da5fb59fafb388f9798be3fc572694c31bfd734b08783185f7cc365e2b57",
+  "trajectory_binding": "Shape-of-Motion-style query-anchored EndoGaussian displacement field",
+  "trajectory_query_frame": 0,
+  "reconstruction_split": {
+    "ratio": [
+      7,
+      1
+    ],
+    "test_rule": "full video frame_index % 8 == 0",
+    "test_end_exclusive": 1152
+  },
+  "future_split": {
+    "train_end_inclusive": 1151,
+    "test_start_inclusive": 1152,
+    "ground_truth_formal_test_start": 1152
+  },
+  "render_scale": 0.5,
+  "render_camera": "stereo_left",
+  "render_mask": "all pixels except the frozen SurgicalSAM2 instrument mask",
+  "capture_renders": true,
+  "baseline": {
+    "method": "EndoGaussian",
+    "adapter_version": "endogaussian_super_v2_noninstrument_mask",
+    "endogaussian_commit": "8d12793838a1595b299df0696c8149c07329e980",
+    "shape_of_motion_commit": "579753e1c7ba96f60cd7690e5b835627bd1935e9",
+    "shape_of_motion_usage": "trajectory decoder design only",
+    "checkpoint_iteration": 3000,
+    "time_normalization": "frame_index / full_sequence_frame_count",
+    "future_behavior": "native EndoGaussian temporal deformation field extrapolation",
+    "camera_projection": "full non-centered SUPER K in the external camera adapter",
+    "training_mask": "all depth-valid pixels outside the frozen SurgicalSAM2 instrument mask",
+    "ground_truth_usage": "frame-0 2D query pixels after checkpoint freeze and downstream scoring only",
+    "future_observations_used": false,
+    "track_report": {
+      "decoder_version": "som_query_anchored_displacement_v2",
+      "query_point_count": 10,
+      "query_valid_count": 10,
+      "initial_query_reprojection_max_px": 0.00013647876039613038,
+      "query_depth_endogaussian_m_min": 0.08256801605224609,
+      "query_depth_endogaussian_m_max": 0.10864403533935547,
+      "alignment": "none"
+    }
+  }
+}

@@ -180,3 +180,6 @@ tools/virtualgl/vendor/
 /outputs/
 /_skipped.face
 /_skipped.node
+
+# Pinned third-party baseline checkout; adapters and version manifests are tracked.
+/baselines/EndoGaussian/

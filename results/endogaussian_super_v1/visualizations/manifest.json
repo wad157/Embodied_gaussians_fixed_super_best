@@ -1,0 +1,30 @@
+{
+  "schema": "endogaussian_super_review_videos_v1",
+  "dataset_key": "grasp5",
+  "capture": "/Media_HDD/jwshan/wad/Embodied_gaussians_fixed_super_best/outputs/endogaussian_super_joint_v1/grasp5/repeat_01/capture",
+  "protocol": "joint_reconstruction_7to1_future_80to20",
+  "ground_truth": "/Media_HDD/jwshan/wad/Embodied_gaussians_fixed_super_best/data/super/evaluation_v1/manual_tissue_tracks_10/ground_truth_2d3d_v1.npz",
+  "ground_truth_sha256": "5f61da5fb59fafb388f9798be3fc572694c31bfd734b08783185f7cc365e2b57",
+  "prediction_sha256": "0205c702df17e8d4ae38e7ff132052bf7b44b59afc5feadeaf368bcd7eba8088",
+  "tracks": {
+    "path": "/Media_HDD/jwshan/wad/Embodied_gaussians_fixed_super_best/outputs/endogaussian_super_joint_v1/grasp5/repeat_01/capture/visualizations/endogaussian_tracks_query_anchored_vs_gt.mp4",
+    "source_frame_count": 149,
+    "encoded_frame_count": 298,
+    "fps": 10.0,
+    "size_wh": [
+      1152,
+      648
+    ]
+  },
+  "reconstruction": {
+    "path": "/Media_HDD/jwshan/wad/Embodied_gaussians_fixed_super_best/outputs/endogaussian_super_joint_v1/grasp5/repeat_01/capture/visualizations/endogaussian_reconstruction_vs_target.mp4",
+    "encoded_frame_count": 432,
+    "fps": 15.0,
+    "size_wh": [
+      1920,
+      540
+    ],
+    "first_frame": 0,
+    "last_frame": 1439
+  }
+}

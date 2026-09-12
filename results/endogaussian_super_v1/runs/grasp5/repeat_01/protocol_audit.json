@@ -1,0 +1,50 @@
+{
+  "schema": "endogaussian_super_protocol_audit_v2",
+  "adapter_version": "endogaussian_super_v2_noninstrument_mask",
+  "passed": true,
+  "dataset_key": "grasp5",
+  "frames": 1440,
+  "ground_truth": "data/super/evaluation_v1/manual_tissue_tracks_10/ground_truth_2d3d_v1.npz",
+  "ground_truth_sha256": "5f61da5fb59fafb388f9798be3fc572694c31bfd734b08783185f7cc365e2b57",
+  "split": {
+    "training_rule": "frame < 1152 and frame % 8 != 0",
+    "training_frame_count": 1008,
+    "reconstruction_holdout_count": 144,
+    "future_frame_count": 288
+  },
+  "inputs": {
+    "native": "data/super/grasp5_native",
+    "rgb": "rgb/%06d-{left,right}.png",
+    "left_metadata_sha256": "4ab90c0babf1f38f0528de75e0a4bfd301e8cc2c2ca88134faa941e1c9ce1187",
+    "right_metadata_sha256": "ca30d70421807c26eae5db11199cfe9225af73bc2472e78d6e8e190ea042d80a",
+    "calibration_sha256": "be32b2b3bbf631557d7f16ec8676c513b85c7183529ee7113ebdb43ddd24eb8f",
+    "camera_file_sha256": "e1e7b7e7e21ca8a9409c88a29409d2e9ad6b783a85b277e71cec0c84340ce4ef",
+    "instrument_masks_sha256": "26d3c449f12c9899589bf1bf09e9407ce261c65a596969cc211b3c4b8cda8570",
+    "training_mask": "all depth-valid pixels outside the frozen SurgicalSAM2 instrument mask",
+    "forbidden_during_training": [
+      "ground truth",
+      "GT stereo depth",
+      "holdout RGB",
+      "future RGB"
+    ]
+  },
+  "depth_cache": {
+    "path": "data/super/grasp5_native/endogaussian_foundation_depth_ds3_v1",
+    "complete": true,
+    "exact_legal_schedule": true,
+    "cached_frame_count": 1008,
+    "uses_ground_truth": false
+  },
+  "evaluation_points": {
+    "count": 10,
+    "query_frame": 0,
+    "all_query_points_visible": true,
+    "all_query_points_3d_valid": true
+  },
+  "endogaussian": {
+    "root": "baselines/EndoGaussian",
+    "commit": "8d12793838a1595b299df0696c8149c07329e980",
+    "algorithm_source_clean": true,
+    "time_normalization": "frame_index / full_sequence_frame_count"
+  }
+}

@@ -10490,3 +10490,60 @@ LPIPS 均改善。Reconstruction 提交 6 次；Future 提交 22 次，且全部
 只保留为失败消融，不作为正式方案。详细公式、参数、提交帧和复现命令见
 `H3刚度正式记录.md`。`scripts/run_super_reproduce_old_h3_scale_only_three_way.sh`
 现显式关闭两个实验开关，避免继承 shell 环境后误启用。
+
+## 2026-09-12：EndoGaussian baseline 在 SUPER 三数据集正式完成并发布
+
+已完成 EndoGaussian 在当前 `grasp5`、`grasp3`、`grasp1` 数据集上的正式适配与
+`3 datasets × 3 seeds` 测评，共 9 次实际训练。官方 EndoGaussian 固定到提交
+`8d12793838a1595b299df0696c8149c07329e980`，使用官方 EndoNeRF `pulling` 配置：
+coarse 1000 次、fine 3000 次、30,000 个初始高斯和双目米制深度监督。独立环境位于
+与 `eg_codex` 同级的 `endogaussian_baseline`；上游训练循环、deformation network、
+renderer、loss、optimizer 和 CUDA rasterizer 没有修改。
+
+SUPER 适配版本为 `endogaussian_super_v2_noninstrument_mask`。训练输入只含合法训练帧
+左目 RGB、冻结器械 mask 以外区域、相机标定和由同帧左右目独立计算的
+FoundationStereo 深度。grasp5/grasp3/grasp1 分别使用当前冻结 GT 与 Future 起点
+`1152/1649/3364`；旧 GT、旧测评点、旧帧划分和当前方法的 AllTracker 中间结果均不
+进入 EndoGaussian 训练。相机适配使用完整非中心主点 `K`，模型内部统一采用
+`1000 units/m`，评测输出严格换回米制。
+
+EndoGaussian 原代码不输出测评点轨迹。当前 `som_query_anchored_displacement_v2`
+解码器只参考 Shape of Motion 提交
+`579753e1c7ba96f60cd7690e5b835627bd1935e9` 的“在查询时刻几何上光栅化目标时刻属性”
+设计：checkpoint 冻结后读取 frame 0 的 10 个 2D 查询像素，用 EndoGaussian 自身深度
+反投影，再光栅化目标时刻相对查询时刻的高斯中心位移。没有运行 Shape of Motion 模型，
+也没有使用其权重、轨迹、深度、相机或 evaluator。frame 0 最大重投影误差固定要求小于
+`1e-3 px`。
+
+正式协议为 `joint_reconstruction_7to1_future_80to20`。训练前 80% 中
+`frame % 8 == 0` 的帧只计分不回写；最后 20% 不读取 RGB、深度、mask 或轨迹观测，
+直接保留 EndoGaussian 原生时间变形场的 Future 外推。图像评分使用 0.5 倍左目、当前
+TorchCodec CUDA 解码路径和冻结 SurgicalSAM2 器械 mask；轨迹评分报告 2D 像素与相机
+坐标 3D 毫米误差，不做尺度、ICP、刚体对齐或后验修正。
+
+最终三次均值 ± 总体标准差如下：
+
+| 数据集 | 分区 | 3D (mm) ↓ | 2D (px) ↓ | PSNR (dB) ↑ | SSIM ↑ | LPIPS ↓ |
+|---|---|---:|---:|---:|---:|---:|
+| grasp5 | Reconstruction | 10.784 ± 1.285 | 26.116 ± 0.193 | 28.307 ± 0.015 | 0.8844 ± 0.0006 | 0.2713 ± 0.0008 |
+| grasp5 | Future | 10.482 ± 1.298 | 21.805 ± 0.035 | 26.700 ± 0.069 | 0.8356 ± 0.0010 | 0.2883 ± 0.0019 |
+| grasp3 | Reconstruction | 5.959 ± 0.831 | 27.187 ± 0.690 | 28.286 ± 0.010 | 0.8829 ± 0.0000 | 0.2681 ± 0.0010 |
+| grasp3 | Future | 5.193 ± 0.905 | 19.143 ± 0.376 | 27.029 ± 0.048 | 0.8494 ± 0.0019 | 0.2891 ± 0.0013 |
+| grasp1 | Reconstruction | 6.567 ± 1.071 | 28.490 ± 0.507 | 28.342 ± 0.023 | 0.8841 ± 0.0003 | 0.2759 ± 0.0012 |
+| grasp1 | Future | 6.183 ± 0.984 | 35.868 ± 0.421 | 27.401 ± 0.056 | 0.8512 ± 0.0018 | 0.2838 ± 0.0006 |
+
+9 份报告的 GT 哈希匹配、轨迹时间表完整、计分观测留出和渲染划分精确四项检查均为
+`true`，没有 NaN 或无穷数。grasp1 repeat_02 的 3D 误差高于 repeat_01/03，但协议与
+文件完整性全部通过，因此按真实重复实验保留，没有挑选运行。
+
+诊断确认 EndoGaussian 的图像质量高而持久点运动偏小：grasp5 repeat_01 的预测点相对
+查询帧平均运动为 `5.029 px / 0.321 mm`，GT 为 `26.819 px / 1.573 mm`。单高斯与局部
+候选也不能恢复缺失运动，说明主要原因是 checkpoint 在 RGB/深度重建监督下没有学到
+准确的长程材料对应。渲染还可依靠高斯尺度、旋转和可见性变化提高质量，所以保留这一
+忠实 baseline 结果，不增加物理或轨迹修正。
+
+GitHub 精简发布目录为 `results/endogaussian_super_v1/`：包含 EndoGaussian-only
+`aggregate.{json,csv}`、9 次逐次指标、预测 2D/3D 轨迹、协议审计、SHA-256 清单以及
+代表性的轨迹/重建视频。约 13 GB 的 checkpoint、双目深度缓存、逐帧渲染图和日志不
+上传。算法适配与测评方式写入 `baselines.md`，主 `README.md` 增加 baseline 入口与最终
+结果表。
