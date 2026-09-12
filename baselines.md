@@ -1,6 +1,6 @@
 # Baseline 适配与测评
 
-本文固定 `Embodied_gaussians_fixed_super_best` 上的 baseline 适配口径。当前第一项是 EndoGaussian。所有正式结果必须先通过 `scripts/audit_endogaussian_super_protocol.py`；旧 SUPER 真值、旧测评点、旧留出相位以及主方法的 AllTracker 中间结果均不得作为 EndoGaussian 输入。
+本文固定 `Embodied_gaussians_fixed_super_best` 上的 baseline 适配口径。当前包含 EndoGaussian 与 EH-SurGS。所有正式结果必须先通过对应协议审计；旧 SUPER 真值、旧测评点、旧留出相位以及主方法的 AllTracker 中间结果均不得作为 baseline 输入。
 
 当前适配版本为 `endogaussian_super_v2_noninstrument_mask`。早期组织专用 mask 的调试结果不进入正式汇总。
 

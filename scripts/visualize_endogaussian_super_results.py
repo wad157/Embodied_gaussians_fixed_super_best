@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Create SUPER EndoGaussian trajectory and reconstruction review videos."""
+"""Create SUPER baseline trajectory and reconstruction review videos."""
 
 from __future__ import annotations
 
@@ -46,6 +46,8 @@ def parse_args():
     parser.add_argument("--track-hold-frames", type=int, default=2)
     parser.add_argument("--track-trail-samples", type=int, default=18)
     parser.add_argument("--reconstruction-fps", type=float, default=15.0)
+    parser.add_argument("--method-label", default="EndoGaussian")
+    parser.add_argument("--output-prefix", default="endogaussian")
     return parser.parse_args()
 
 
@@ -174,6 +176,7 @@ def trajectory_video(
     fps: float,
     hold_frames: int,
     trail_samples: int,
+    method_label: str,
 ) -> dict:
     frames = np.asarray(gt["frame_indices"], dtype=np.int32)
     if not np.array_equal(frames, prediction["frame_indices"]):
@@ -231,7 +234,7 @@ def trajectory_video(
             error_3d = mean_error(pred_xyz[slot], gt_xyz[slot], valid_3d[slot], 1000.0)
             label, label_color = phase(frame_index, future_start)
             dark_panel(image, 0, 105)
-            text(image, "EndoGaussian SUPER {} | frame {}/{} | {}".format(dataset_key, frame_index, int(frames[-1]), label), (14, 27), scale=0.62, color=label_color, thickness=2)
+            text(image, "{} SUPER {} | frame {}/{} | {}".format(method_label, dataset_key, frame_index, int(frames[-1]), label), (14, 27), scale=0.62, color=label_color, thickness=2)
             text(image, "GT: white circle/trail | prediction: colored X/trail | connector: yellow", (14, 56), scale=0.49)
             text(image, "instant mean: 2D={:.2f} px | 3D={:.2f} mm | sparse annotated samples only".format(error_2d, error_3d), (14, 84), scale=0.52)
             for _ in range(hold_frames):
@@ -243,7 +246,7 @@ def trajectory_video(
     return {"source_frame_count": int(len(frames)), "encoded_frame_count": int(len(frames) * hold_frames), "fps": fps, "size_wh": list(size)}
 
 
-def reconstruction_video(capture: Path, future_start: int, output: Path, fps: float) -> dict:
+def reconstruction_video(capture: Path, future_start: int, output: Path, fps: float, method_label: str) -> dict:
     partial = json.loads((capture / "render_metrics_partial.json").read_text(encoding="utf-8"))
     records = partial["records"]
     frames = [int(record["frame_index"]) for record in records]
@@ -265,7 +268,7 @@ def reconstruction_video(capture: Path, future_start: int, output: Path, fps: fl
             dark_panel(canvas, 0, 72)
             label, label_color = phase(frame_index, future_start)
             text(canvas, "TARGET (tool masked)", (14, 27), scale=0.62, thickness=2)
-            text(canvas, "ENDOGAUSSIAN", (panel_width + 14, 27), scale=0.62, color=(95, 235, 95), thickness=2)
+            text(canvas, method_label.upper(), (panel_width + 14, 27), scale=0.62, color=(95, 235, 95), thickness=2)
             text(canvas, "frame {} | {} | PSNR {:.2f} dB | SSIM {:.4f}".format(frame_index, label, float(record["psnr_db"]), float(record["ssim"])), (14, 58), scale=0.55, color=label_color, thickness=2)
             cv2.line(canvas, (panel_width, 0), (panel_width, panel_height), (255, 255, 255), 2)
             writer.write(canvas)
@@ -295,8 +298,8 @@ def main() -> None:
     prediction_path = capture / "predicted_tracks.npz"
     prediction = read_npz(prediction_path)
     future_start = int(spec["future_start"])
-    tracks_path = output_dir / "endogaussian_tracks_query_anchored_vs_gt.mp4"
-    reconstruction_path = output_dir / "endogaussian_reconstruction_vs_target.mp4"
+    tracks_path = output_dir / (args.output_prefix + "_tracks_query_anchored_vs_gt.mp4")
+    reconstruction_path = output_dir / (args.output_prefix + "_reconstruction_vs_target.mp4")
     tracks = trajectory_video(
         dataset_key=args.dataset_key,
         gt=gt,
@@ -308,10 +311,18 @@ def main() -> None:
         fps=args.track_fps,
         hold_frames=args.track_hold_frames,
         trail_samples=args.track_trail_samples,
+        method_label=args.method_label,
     )
-    reconstruction = reconstruction_video(capture, future_start, reconstruction_path, args.reconstruction_fps)
+    reconstruction = reconstruction_video(
+        capture,
+        future_start,
+        reconstruction_path,
+        args.reconstruction_fps,
+        args.method_label,
+    )
     manifest = {
-        "schema": "endogaussian_super_review_videos_v1",
+        "schema": "super_baseline_review_videos_v1",
+        "method": args.method_label,
         "dataset_key": args.dataset_key,
         "capture": str(capture),
         "protocol": PROTOCOL,

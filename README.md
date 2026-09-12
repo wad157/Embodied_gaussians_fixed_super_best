@@ -11,6 +11,7 @@
 [grasp1/grasp3/grasp5 新 Joint 协议三次结果](SUPER_JOINT_GRASP135_EVALUATION.md) ·
 [EndoGaussian baseline 与结果](baselines.md) ·
 [EndoGaussian 机器可读结果](results/endogaussian_super_v1/) ·
+[EH-SurGS grasp5 适配说明](baselines/eh_surgs_super/README.md) ·
 [当前 f1/f2 结果](CURRENT_F1_F2_EVALUATION.md) ·
 [机器可读结果](results/super_grasp5_reconstruction_f1_future_f2_v1.csv) ·
 [grasp1/grasp3 三次评测](SUPER_GRASP1_GRASP3_EVALUATION.md) ·
@@ -65,6 +66,21 @@ EndoGaussian 原生时间变形场的 Future 外推。轨迹指标不做尺度�
 数值为三次均值 ± 总体标准差。完整算法说明、数据版本和命令见
 [baseline 适配文档](baselines.md)，逐次 JSON、预测轨迹、协议审计和代表性视频见
 [EndoGaussian 结果目录](results/endogaussian_super_v1/)。
+
+## EH-SurGS baseline：grasp5
+
+EH-SurGS 已使用相同的 `joint_reconstruction_7to1_future_80to20` 协议接入 SUPER `grasp5`，并完成 seed 0 的一次正式训练、渲染和统一评分。训练与 EndoGaussian baseline 共享同一套合法前缀 FoundationStereo 深度、非器械 mask、完整非中心主点相机和 10 点 GT；7:1 留出帧及最后 20% 的 RGB、深度、mask 和轨迹均不参与训练。
+
+EH-SurGS 将场景表示为 canonical 3D Gaussians，并通过自适应运动层级的时间形变模型预测 Gaussian 的位置、尺度和旋转。官方代码固定到 `73fa04e6f5c21cc1685f728eccb1332e81ce620c`；唯一兼容补丁使运动分块读取当前 SUPER 相机内参，形变网络、损失、优化器和 rasterizer 保持不变。轨迹仍使用冻结 checkpoint 后的 Shape of Motion 查询锚定位移解码，不使用 GT 深度/3D 或后验对齐。
+
+| 分区 | 3D mean / RMSE (mm) ↓ | 2D mean / RMSE (px) ↓ | PSNR (dB) ↑ | SSIM ↑ | LPIPS ↓ |
+|---|---:|---:|---:|---:|---:|
+| Reconstruction 7:1 | 5.898 / 7.394 | 34.877 / 44.778 | 28.310 | 0.8827 | 0.2782 |
+| Future 80:20 | 5.753 / 7.295 | 22.315 / 24.952 | 26.914 | 0.8272 | 0.3238 |
+
+这些数值是单次 seed 0 结果，不报告标准差。当前仅生成 grasp5 的两个本地检查视频：查询锚定轨迹对比和 Reconstruction/Future 渲染对比；没有运行 grasp3、grasp1 或额外重复。
+
+环境、协议、运行命令和输出说明见 [EH-SurGS SUPER baseline 文档](baselines/eh_surgs_super/README.md)。
 
 ## 整体方法
 

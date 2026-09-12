@@ -183,3 +183,4 @@ tools/virtualgl/vendor/
 
 # Pinned third-party baseline checkout; adapters and version manifests are tracked.
 /baselines/EndoGaussian/
+/baselines/EH-SurGS
