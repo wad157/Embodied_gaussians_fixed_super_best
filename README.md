@@ -11,7 +11,7 @@
 [grasp1/grasp3/grasp5 新 Joint 协议三次结果](SUPER_JOINT_GRASP135_EVALUATION.md) ·
 [EndoGaussian baseline 与结果](baselines.md) ·
 [EndoGaussian 机器可读结果](results/endogaussian_super_v1/) ·
-[EH-SurGS grasp5 适配说明](baselines/eh_surgs_super/README.md) ·
+[EH-SurGS 三数据集三次结果](outputs/eh_surgs_super_joint_v1/summary/summary.md) ·
 [当前 f1/f2 结果](CURRENT_F1_F2_EVALUATION.md) ·
 [机器可读结果](results/super_grasp5_reconstruction_f1_future_f2_v1.csv) ·
 [grasp1/grasp3 三次评测](SUPER_GRASP1_GRASP3_EVALUATION.md) ·
@@ -67,20 +67,24 @@ EndoGaussian 原生时间变形场的 Future 外推。轨迹指标不做尺度�
 [baseline 适配文档](baselines.md)，逐次 JSON、预测轨迹、协议审计和代表性视频见
 [EndoGaussian 结果目录](results/endogaussian_super_v1/)。
 
-## EH-SurGS baseline：grasp5
+## EH-SurGS baseline
 
-EH-SurGS 已使用相同的 `joint_reconstruction_7to1_future_80to20` 协议接入 SUPER `grasp5`，并完成 seed 0 的一次正式训练、渲染和统一评分。训练与 EndoGaussian baseline 共享同一套合法前缀 FoundationStereo 深度、非器械 mask、完整非中心主点相机和 10 点 GT；7:1 留出帧及最后 20% 的 RGB、深度、mask 和轨迹均不参与训练。
+EH-SurGS 已使用相同的 `joint_reconstruction_7to1_future_80to20` 协议完成 SUPER `grasp5`、`grasp3`、`grasp1` 的正式评测，每套数据均使用 seed 0、1、2 实际训练三次。训练与 EndoGaussian baseline 共享同一套合法前缀 FoundationStereo 深度、非器械 mask、完整非中心主点相机和当前 10 点 GT；7:1 留出帧及最后 20% 的 RGB、深度、mask 和轨迹均不参与训练。
 
 EH-SurGS 将场景表示为 canonical 3D Gaussians，并通过自适应运动层级的时间形变模型预测 Gaussian 的位置、尺度和旋转。官方代码固定到 `73fa04e6f5c21cc1685f728eccb1332e81ce620c`；唯一兼容补丁使运动分块读取当前 SUPER 相机内参，形变网络、损失、优化器和 rasterizer 保持不变。轨迹仍使用冻结 checkpoint 后的 Shape of Motion 查询锚定位移解码，不使用 GT 深度/3D 或后验对齐。
 
-| 分区 | 3D mean / RMSE (mm) ↓ | 2D mean / RMSE (px) ↓ | PSNR (dB) ↑ | SSIM ↑ | LPIPS ↓ |
-|---|---:|---:|---:|---:|---:|
-| Reconstruction 7:1 | 5.898 / 7.394 | 34.877 / 44.778 | 28.310 | 0.8827 | 0.2782 |
-| Future 80:20 | 5.753 / 7.295 | 22.315 / 24.952 | 26.914 | 0.8272 | 0.3238 |
+| 数据集 | 分区 | 3D mean (mm) ↓ | 2D mean (px) ↓ | PSNR (dB) ↑ | SSIM ↑ | LPIPS ↓ |
+|---|---|---:|---:|---:|---:|---:|
+| grasp5 | Reconstruction | 6.336 ± 1.021 | 33.607 ± 0.904 | 28.301 ± 0.010 | 0.8828 ± 0.0002 | 0.2786 ± 0.0003 |
+| grasp5 | Future | 6.189 ± 1.103 | 22.643 ± 0.573 | 26.903 ± 0.008 | 0.8285 ± 0.0009 | 0.3254 ± 0.0013 |
+| grasp3 | Reconstruction | 5.226 ± 0.765 | 30.040 ± 1.650 | 28.277 ± 0.008 | 0.8816 ± 0.0001 | 0.2765 ± 0.0006 |
+| grasp3 | Future | 4.463 ± 0.794 | 17.292 ± 0.969 | 27.042 ± 0.031 | 0.8375 ± 0.0011 | 0.3301 ± 0.0015 |
+| grasp1 | Reconstruction | 5.799 ± 1.303 | 34.354 ± 1.437 | 28.332 ± 0.026 | 0.8821 ± 0.0003 | 0.2866 ± 0.0004 |
+| grasp1 | Future | 5.547 ± 1.258 | 33.600 ± 0.332 | 27.497 ± 0.011 | 0.8460 ± 0.0001 | 0.3244 ± 0.0013 |
 
-这些数值是单次 seed 0 结果，不报告标准差。当前仅生成 grasp5 的两个本地检查视频：查询锚定轨迹对比和 Reconstruction/Future 渲染对比；没有运行 grasp3、grasp1 或额外重复。
+数值为三次算术均值 ± 总体标准差，不挑选最优运行。9 份报告均通过 GT 哈希、完整轨迹日程、观测留出、渲染分区和单次产物 SHA256 检查。按用户指定，只为 grasp5 seed 0 生成了查询锚定轨迹对比和 Reconstruction/Future 渲染对比视频。
 
-环境、协议、运行命令和输出说明见 [EH-SurGS SUPER baseline 文档](baselines/eh_surgs_super/README.md)。
+环境、协议、运行命令和输出说明见 [EH-SurGS SUPER baseline 文档](baselines/eh_surgs_super/README.md)，逐次值与样本标准差见[机器可读汇总](outputs/eh_surgs_super_joint_v1/summary/summary.json)。
 
 ## 整体方法
 

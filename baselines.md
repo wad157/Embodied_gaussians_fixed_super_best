@@ -4,6 +4,8 @@
 
 当前适配版本为 `endogaussian_super_v2_noninstrument_mask`。早期组织专用 mask 的调试结果不进入正式汇总。
 
+EH-SurGS 的固定版本、三数据集三次结果和双 GPU 命令见 [EH-SurGS SUPER baseline 文档](baselines/eh_surgs_super/README.md)。
+
 ## EndoGaussian 版本
 
 - 官方仓库：<https://github.com/CUHK-AIM-Group/EndoGaussian>

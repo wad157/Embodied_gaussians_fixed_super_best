@@ -1,6 +1,6 @@
 # EH-SurGS SUPER baseline
 
-该适配器把固定版本 EH-SurGS 接入当前 SUPER `joint_reconstruction_7to1_future_80to20` 协议。目前按用户指定只完成 `grasp5` seed 0，并生成两个检查视频；未运行 grasp3、grasp1 或另外两个 seed。
+该适配器把固定版本 EH-SurGS 接入当前 SUPER `joint_reconstruction_7to1_future_80to20` 协议。`grasp5`、`grasp3`、`grasp1` 均已完成 seed 0、1、2 三次正式运行；按用户指定，仅为 `grasp5` seed 0 生成两个检查视频。
 
 ## 方法与版本
 
@@ -41,6 +41,13 @@ EH_SURGS_GPU_ID=0 bash scripts/run_eh_surgs_super_baseline_once.sh \
   grasp5 repeat_01 0 outputs/eh_surgs_super_joint_v1/grasp5/repeat_01
 ```
 
+复用上述 grasp5 seed 0，并在两张 GPU 上补齐三数据集各三次：
+
+```bash
+bash scripts/run_eh_surgs_super_three_datasets_three_repeats_two_gpus.sh \
+  outputs/eh_surgs_super_joint_v1
+```
+
 生成两个视频：
 
 ```bash
@@ -57,11 +64,17 @@ EH_SURGS_GPU_ID=0 bash scripts/run_eh_surgs_super_baseline_once.sh \
 - `eh_surgs_tracks_query_anchored_vs_gt.mp4`
 - `eh_surgs_reconstruction_vs_target.mp4`
 
-## grasp5 seed 0 结果
+## 三数据集三次结果
 
-| 分区 | 3D mean / RMSE (mm) | 2D mean / RMSE (px) | PSNR (dB) | SSIM | LPIPS |
-|---|---:|---:|---:|---:|---:|
-| Reconstruction 7:1 | 5.898 / 7.394 | 34.877 / 44.778 | 28.310 | 0.8827 | 0.2782 |
-| Future 80:20 | 5.753 / 7.295 | 22.315 / 24.952 | 26.914 | 0.8272 | 0.3238 |
+以下为算术均值 ± 总体标准差；完整 JSON 同时保存总体标准差、样本标准差和三次原始值。
 
-结果目录包含 `protocol_audit.json`、`metadata.json`、`predicted_tracks.npz`、`render_metrics_partial.json`、`evaluation_results.json` 和 SHA256 清单。它们均保留在本地 `outputs/`；Git 只提交适配代码和说明。
+| 数据集 | 分区 | 3D mean / RMSE (mm) | 2D mean / RMSE (px) | PSNR (dB) | SSIM | LPIPS |
+|---|---|---:|---:|---:|---:|---:|
+| grasp5 | Reconstruction | 6.336 ± 1.021 / 7.266 ± 0.825 | 33.607 ± 0.904 / 43.322 ± 1.311 | 28.301 ± 0.010 | 0.8828 ± 0.0002 | 0.2786 ± 0.0003 |
+| grasp5 | Future | 6.189 ± 1.103 / 7.140 ± 0.855 | 22.643 ± 0.573 / 25.198 ± 0.495 | 26.903 ± 0.008 | 0.8285 ± 0.0009 | 0.3254 ± 0.0013 |
+| grasp3 | Reconstruction | 5.226 ± 0.765 / 6.790 ± 0.836 | 30.040 ± 1.650 / 41.171 ± 1.406 | 28.277 ± 0.008 | 0.8816 ± 0.0001 | 0.2765 ± 0.0006 |
+| grasp3 | Future | 4.463 ± 0.794 / 5.940 ± 0.938 | 17.292 ± 0.969 / 19.071 ± 0.883 | 27.042 ± 0.031 | 0.8375 ± 0.0011 | 0.3301 ± 0.0015 |
+| grasp1 | Reconstruction | 5.799 ± 1.303 / 6.591 ± 1.166 | 34.354 ± 1.437 / 47.783 ± 1.185 | 28.332 ± 0.026 | 0.8821 ± 0.0003 | 0.2866 ± 0.0004 |
+| grasp1 | Future | 5.547 ± 1.258 / 6.238 ± 1.183 | 33.600 ± 0.332 / 37.387 ± 0.594 | 27.497 ± 0.011 | 0.8460 ± 0.0001 | 0.3244 ± 0.0013 |
+
+9 份运行均通过协议与单次 SHA256 检查。聚合结果位于 `outputs/eh_surgs_super_joint_v1/summary/summary.{md,json}`；checkpoint、逐帧 render、预测轨迹和视频继续保留在本地，不提交 Git。
