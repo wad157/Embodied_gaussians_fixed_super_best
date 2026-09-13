@@ -1,0 +1,6 @@
+{
+  "schema": "eh_surgs_super_capture_v1",
+  "protocol": "joint_reconstruction_7to1_future_80to20",
+  "track_frame_count": 428,
+  "render_frame_count": 1262
+}

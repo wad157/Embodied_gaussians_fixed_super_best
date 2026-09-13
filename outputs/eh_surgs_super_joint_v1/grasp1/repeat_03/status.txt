@@ -1,0 +1,7 @@
+status=complete
+dataset=grasp1
+repeat=repeat_03
+seed=2
+gpu=1
+method=EH-SurGS_super_v1_noninstrument_mask
+protocol=joint_reconstruction_7to1_future_80to20
