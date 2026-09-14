@@ -42,13 +42,18 @@ def tracking_metrics(
         [pred_lookup[frame] for frame in frames], dtype=np.int64
     )
     visible = gt["visible"][gt_slots].astype(bool)
-    difference_2d = prediction["uv"][pred_slots] - gt["uv"][gt_slots]
+    predicted_uv = prediction["uv"][pred_slots]
+    valid_2d = visible & np.isfinite(predicted_uv).all(axis=-1)
+    difference_2d = predicted_uv - gt["uv"][gt_slots]
     error_2d = np.linalg.norm(difference_2d, axis=-1)
-    error_2d[~visible] = np.nan
-    valid_3d = gt["valid_3d"][gt_slots].astype(bool)
+    error_2d[~valid_2d] = np.nan
+    predicted_xyz = prediction["xyz_camera_m"][pred_slots]
+    valid_3d = (
+        gt["valid_3d"][gt_slots].astype(bool)
+        & np.isfinite(predicted_xyz).all(axis=-1)
+    )
     difference_3d = (
-        prediction["xyz_camera_m"][pred_slots]
-        - gt["xyz_camera_m"][gt_slots]
+        predicted_xyz - gt["xyz_camera_m"][gt_slots]
     )
     error_3d = np.linalg.norm(difference_3d, axis=-1)
     error_3d[~valid_3d] = np.nan
@@ -58,11 +63,16 @@ def tracking_metrics(
         "scored_frames": frames,
         "2d_error_px": distribution(error_2d),
         "2d_tap_position_accuracy": tap_position_accuracy(error_2d),
+        "2d_coverage": {
+            "valid": int(valid_2d.sum()),
+            "visible": int(visible.sum()),
+            "fraction": float(valid_2d.sum() / max(1, visible.sum())),
+        },
         "3d_error_mm": distribution(error_3d, scale=1000.0),
         "3d_coverage": {
             "valid": int(valid_3d.sum()),
             "visible": int(visible.sum()),
-            "fraction": float(valid_3d.sum() / max(1, visible.sum())),
+            "fraction": float(valid_3d.sum() / max(1, gt["valid_3d"][gt_slots].sum())),
         },
         "per_point": [
             {

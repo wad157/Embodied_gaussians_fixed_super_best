@@ -1,0 +1,514 @@
+{
+  "schema": "embodied_gaussians_super_three_datasets_three_repeats_v1",
+  "method": "Embodied Gaussians EG-Soft paper reconstruction",
+  "protocol": "joint_reconstruction_7to1_future_80to20",
+  "upstream_commit": "c97ec671f97af25985e0af8844c0aac8d8119b97",
+  "seeds": [
+    0,
+    1,
+    2
+  ],
+  "repeat_count": 3,
+  "selection": "no best-run selection",
+  "dispersion": "population standard deviation in table; sample standard deviation retained in JSON",
+  "shape_of_motion_used": false,
+  "raw_reports": {
+    "grasp5": {
+      "repeat_01": "grasp5/repeat_01/capture/evaluation_results.json",
+      "repeat_02": "grasp5/repeat_02/capture/evaluation_results.json",
+      "repeat_03": "grasp5/repeat_03/capture/evaluation_results.json"
+    },
+    "grasp3": {
+      "repeat_01": "grasp3/repeat_01/capture/evaluation_results.json",
+      "repeat_02": "grasp3/repeat_02/capture/evaluation_results.json",
+      "repeat_03": "grasp3/repeat_03/capture/evaluation_results.json"
+    },
+    "grasp1": {
+      "repeat_01": "grasp1/repeat_01/capture/evaluation_results.json",
+      "repeat_02": "grasp1/repeat_02/capture/evaluation_results.json",
+      "repeat_03": "grasp1/repeat_03/capture/evaluation_results.json"
+    }
+  },
+  "aggregate": {
+    "grasp5": {
+      "reconstruction_7to1_within_train80": {
+        "3d_mean_mm": {
+          "count": 3,
+          "mean": 41148.39744818063,
+          "population_std": 19541.060871630132,
+          "sample_std": 23932.81408407986,
+          "values": [
+            39984.57302517361,
+            17818.72827079561,
+            65641.89104857268
+          ]
+        },
+        "3d_rmse_mm": {
+          "count": 3,
+          "mean": 44615.403703742246,
+          "population_std": 19895.768532504888,
+          "sample_std": 24367.240472579524,
+          "values": [
+            44595.27714391605,
+            20258.23274503667,
+            68992.701222274
+          ]
+        },
+        "2d_mean_px": {
+          "count": 3,
+          "mean": 87510.37166927008,
+          "population_std": 113921.40901411649,
+          "sample_std": 139524.66143174272,
+          "values": [
+            248545.16012369792,
+            11233.122276927807,
+            2752.832607184516
+          ]
+        },
+        "2d_rmse_px": {
+          "count": 3,
+          "mean": 485497.9496452776,
+          "population_std": 660396.9822153923,
+          "sample_std": 808817.8170507841,
+          "values": [
+            1419266.7638665545,
+            34205.60364401499,
+            3021.481425263301
+          ]
+        },
+        "psnr_db": {
+          "count": 3,
+          "mean": 9.005889835949015,
+          "population_std": 0.00814275596297138,
+          "sample_std": 0.009972798604642478,
+          "values": [
+            9.016321859373242,
+            9.004897137801633,
+            8.99645051067217
+          ]
+        },
+        "ssim": {
+          "count": 3,
+          "mean": 0.006247103860476745,
+          "population_std": 0.00047839740563579447,
+          "sample_std": 0.000585914769039481,
+          "values": [
+            0.006922948854884857,
+            0.005936037912356874,
+            0.005882324814188501
+          ]
+        },
+        "lpips_alex": {
+          "count": 3,
+          "mean": 0.8421078132534469,
+          "population_std": 0.0001864478723753337,
+          "sample_std": 0.0002283510754735635,
+          "values": [
+            0.8419128494958082,
+            0.8420515548851755,
+            0.8423590353793569
+          ]
+        }
+      },
+      "future_80to20": {
+        "3d_mean_mm": {
+          "count": 3,
+          "mean": 55991.09140006445,
+          "population_std": 40324.85325294291,
+          "sample_std": 49387.657211160265,
+          "values": [
+            34135.73203548308,
+            21301.908683776855,
+            112535.63348093341
+          ]
+        },
+        "3d_rmse_mm": {
+          "count": 3,
+          "mean": 56429.86870060795,
+          "population_std": 40105.69908915772,
+          "sample_std": 49119.24927302024,
+          "values": [
+            34565.07756036597,
+            22039.545569835715,
+            112684.98297162217
+          ]
+        },
+        "2d_mean_px": {
+          "count": 3,
+          "mean": 18685.905057911204,
+          "population_std": 22026.995018059642,
+          "sample_std": 26977.449180536627,
+          "values": [
+            49830.58048135081,
+            2575.36769468246,
+            3651.766997700353
+          ]
+        },
+        "2d_rmse_px": {
+          "count": 3,
+          "mean": 48793.753882745,
+          "population_std": 64523.95706450209,
+          "sample_std": 79025.38549664002,
+          "values": [
+            140042.60562665283,
+            2672.493575280189,
+            3666.162446301976
+          ]
+        },
+        "psnr_db": {
+          "count": 3,
+          "mean": 9.02299069234069,
+          "population_std": 0.0,
+          "sample_std": 0.0,
+          "values": [
+            9.02299069234069,
+            9.02299069234069,
+            9.02299069234069
+          ]
+        },
+        "ssim": {
+          "count": 3,
+          "mean": 0.0024798682603027877,
+          "population_std": 0.0,
+          "sample_std": 0.0,
+          "values": [
+            0.0024798682603027877,
+            0.0024798682603027877,
+            0.0024798682603027877
+          ]
+        },
+        "lpips_alex": {
+          "count": 3,
+          "mean": 0.8379929090539614,
+          "population_std": 0.0,
+          "sample_std": 0.0,
+          "values": [
+            0.8379929090539614,
+            0.8379929090539614,
+            0.8379929090539614
+          ]
+        }
+      }
+    },
+    "grasp3": {
+      "reconstruction_7to1_within_train80": {
+        "3d_mean_mm": {
+          "count": 3,
+          "mean": 22242.981601423686,
+          "population_std": 11815.21508391859,
+          "sample_std": 14470.624078417837,
+          "values": [
+            12197.312576359227,
+            38829.22225566137,
+            15702.409972250462
+          ]
+        },
+        "3d_rmse_mm": {
+          "count": 3,
+          "mean": 25730.193135911686,
+          "population_std": 13531.497906393899,
+          "sample_std": 16572.63266310195,
+          "values": [
+            13741.691698835912,
+            44641.836329559934,
+            18807.051379339213
+          ]
+        },
+        "2d_mean_px": {
+          "count": 3,
+          "mean": 8198.31935444181,
+          "population_std": 5197.7936688189675,
+          "sample_std": 6365.9711384377015,
+          "values": [
+            5973.8380126953125,
+            3243.0769717261905,
+            15378.043078903926
+          ]
+        },
+        "2d_rmse_px": {
+          "count": 3,
+          "mean": 10199.638801179291,
+          "population_std": 7837.416115375162,
+          "sample_std": 9598.835192267521,
+          "values": [
+            6126.042108711075,
+            3309.399870766267,
+            21163.474424060532
+          ]
+        },
+        "psnr_db": {
+          "count": 3,
+          "mean": 9.049538985581357,
+          "population_std": 0.015001971837991871,
+          "sample_std": 0.018373588069341595,
+          "values": [
+            9.070519280166097,
+            9.03631769056413,
+            9.041779986013843
+          ]
+        },
+        "ssim": {
+          "count": 3,
+          "mean": 0.004915604959489499,
+          "population_std": 0.0005197314869564506,
+          "sample_std": 0.0006365384731506373,
+          "values": [
+            0.005638172055914062,
+            0.004437685991380958,
+            0.004670956831173477
+          ]
+        },
+        "lpips_alex": {
+          "count": 3,
+          "mean": 0.8374215390371239,
+          "population_std": 9.406428986394235e-05,
+          "sample_std": 0.00011520475659195521,
+          "values": [
+            0.8372971363689589,
+            0.837524546229321,
+            0.837442934513092
+          ]
+        }
+      },
+      "future_80to20": {
+        "3d_mean_mm": {
+          "count": 3,
+          "mean": 46620.25397040627,
+          "population_std": 25912.19506714005,
+          "sample_std": 31735.828014978208,
+          "values": [
+            21498.336505889893,
+            82285.96820831299,
+            36076.45719701594
+          ]
+        },
+        "3d_rmse_mm": {
+          "count": 3,
+          "mean": 46695.75655032072,
+          "population_std": 25976.669825108103,
+          "sample_std": 31814.793144133797,
+          "values": [
+            21504.426718250168,
+            82448.0347501006,
+            36134.8081826114
+          ]
+        },
+        "2d_mean_px": {
+          "count": 3,
+          "mean": 4561.292024739583,
+          "population_std": 1566.8738026113274,
+          "sample_std": 1919.0206538660602,
+          "values": [
+            5858.475055486506,
+            2356.863947088068,
+            5468.537071644176
+          ]
+        },
+        "2d_rmse_px": {
+          "count": 3,
+          "mean": 4570.858794262825,
+          "population_std": 1570.6647113184838,
+          "sample_std": 1923.6635498630637,
+          "values": [
+            5863.592869879815,
+            2360.167490077381,
+            5488.816022831277
+          ]
+        },
+        "psnr_db": {
+          "count": 3,
+          "mean": 9.03129040106814,
+          "population_std": 0.0,
+          "sample_std": 0.0,
+          "values": [
+            9.03129040106814,
+            9.03129040106814,
+            9.03129040106814
+          ]
+        },
+        "ssim": {
+          "count": 3,
+          "mean": 0.0024832226138688245,
+          "population_std": 0.0,
+          "sample_std": 0.0,
+          "values": [
+            0.0024832226138688245,
+            0.0024832226138688245,
+            0.0024832226138688245
+          ]
+        },
+        "lpips_alex": {
+          "count": 3,
+          "mean": 0.8392051227444887,
+          "population_std": 0.0,
+          "sample_std": 0.0,
+          "values": [
+            0.8392051227444887,
+            0.8392051227444887,
+            0.8392051227444887
+          ]
+        }
+      }
+    },
+    "grasp1": {
+      "reconstruction_7to1_within_train80": {
+        "3d_mean_mm": {
+          "count": 2,
+          "mean": null,
+          "population_std": null,
+          "sample_std": null,
+          "values": [
+            181798.81677400498,
+            null,
+            35881.799817085266
+          ]
+        },
+        "3d_rmse_mm": {
+          "count": 2,
+          "mean": null,
+          "population_std": null,
+          "sample_std": null,
+          "values": [
+            211596.8291802675,
+            null,
+            39483.23137708812
+          ]
+        },
+        "2d_mean_px": {
+          "count": 2,
+          "mean": null,
+          "population_std": null,
+          "sample_std": null,
+          "values": [
+            6393.6460044497535,
+            null,
+            11491.611122494653
+          ]
+        },
+        "2d_rmse_px": {
+          "count": 2,
+          "mean": null,
+          "population_std": null,
+          "sample_std": null,
+          "values": [
+            7722.475146140116,
+            null,
+            25997.95756802405
+          ]
+        },
+        "psnr_db": {
+          "count": 3,
+          "mean": 9.109305986674462,
+          "population_std": 0.0014726766744874243,
+          "sample_std": 0.0018036532042964935,
+          "values": [
+            9.108813274006327,
+            9.1077998902841,
+            9.111304795732961
+          ]
+        },
+        "ssim": {
+          "count": 3,
+          "mean": 0.002959551077493874,
+          "population_std": 0.0003732606103243242,
+          "sample_std": 0.00045714901818721054,
+          "values": [
+            0.0030405830133998337,
+            0.0024673044443741052,
+            0.003370765774707684
+          ]
+        },
+        "lpips_alex": {
+          "count": 3,
+          "mean": 0.8469883165752142,
+          "population_std": 5.0616546015406626e-05,
+          "sample_std": 6.199235513992564e-05,
+          "values": [
+            0.8469337297165479,
+            0.8470557130997085,
+            0.8469755069093863
+          ]
+        }
+      },
+      "future_80to20": {
+        "3d_mean_mm": {
+          "count": 2,
+          "mean": null,
+          "population_std": null,
+          "sample_std": null,
+          "values": [
+            352198.26156261354,
+            null,
+            58129.51809195585
+          ]
+        },
+        "3d_rmse_mm": {
+          "count": 2,
+          "mean": null,
+          "population_std": null,
+          "sample_std": null,
+          "values": [
+            352448.70857441804,
+            null,
+            58169.16807096993
+          ]
+        },
+        "2d_mean_px": {
+          "count": 2,
+          "mean": null,
+          "population_std": null,
+          "sample_std": null,
+          "values": [
+            4561.741340104923,
+            null,
+            3133.3612059127454
+          ]
+        },
+        "2d_rmse_px": {
+          "count": 2,
+          "mean": null,
+          "population_std": null,
+          "sample_std": null,
+          "values": [
+            4586.880188048961,
+            null,
+            3334.595576043112
+          ]
+        },
+        "psnr_db": {
+          "count": 3,
+          "mean": 9.169310822109706,
+          "population_std": 0.0,
+          "sample_std": 0.0,
+          "values": [
+            9.169310822109706,
+            9.169310822109706,
+            9.169310822109706
+          ]
+        },
+        "ssim": {
+          "count": 3,
+          "mean": 0.002508040976862331,
+          "population_std": 0.0,
+          "sample_std": 0.0,
+          "values": [
+            0.002508040976862331,
+            0.002508040976862331,
+            0.002508040976862331
+          ]
+        },
+        "lpips_alex": {
+          "count": 3,
+          "mean": 0.8400217684497447,
+          "population_std": 0.0,
+          "sample_std": 0.0,
+          "values": [
+            0.8400217684497447,
+            0.8400217684497447,
+            0.8400217684497447
+          ]
+        }
+      }
+    }
+  }
+}

@@ -12,6 +12,8 @@
 [EndoGaussian baseline 与结果](baselines.md) ·
 [EndoGaussian 机器可读结果](results/endogaussian_super_v1/) ·
 [EH-SurGS 三数据集三次结果](outputs/eh_surgs_super_joint_v1/summary/summary.md) ·
+[Embodied Gaussians EG-Soft 三数据集三次结果](outputs/embodied_gaussians_super_joint_v1/summary/summary.md) ·
+[Embodied Gaussians EG-Soft 适配说明](baselines/embodied_gaussians_super/README.md) ·
 [当前 f1/f2 结果](CURRENT_F1_F2_EVALUATION.md) ·
 [机器可读结果](results/super_grasp5_reconstruction_f1_future_f2_v1.csv) ·
 [grasp1/grasp3 三次评测](SUPER_GRASP1_GRASP3_EVALUATION.md) ·
@@ -85,6 +87,38 @@ EH-SurGS 将场景表示为 canonical 3D Gaussians，并通过自适应运动层
 数值为三次算术均值 ± 总体标准差，不挑选最优运行。9 份报告均通过 GT 哈希、完整轨迹日程、观测留出、渲染分区和单次产物 SHA256 检查。按用户指定，只为 grasp5 seed 0 生成了查询锚定轨迹对比和 Reconstruction/Future 渲染对比视频。
 
 环境、协议、运行命令和输出说明见 [EH-SurGS SUPER baseline 文档](baselines/eh_surgs_super/README.md)，逐次值与样本标准差见[机器可读汇总](outputs/eh_surgs_super_joint_v1/summary/summary.json)。
+
+## Embodied Gaussians EG-Soft baseline
+
+当前已将固定提交 `c97ec671f97af25985e0af8844c0aac8d8119b97` 的 RAI Embodied
+Gaussians 接入相同 SUPER 协议。公开仓库未发布论文 soft shape-matching 源码，因此方法明确记为
+`EG-Soft paper reconstruction`：只补充论文式 (4)–(5) 和 Algorithm 2，不调用本项目的
+四面体 XPBD、跟踪器或材料辨识。
+
+三套数据严格只使用左右目；为保持 `frame % 8 == 0` 留出，初始化从第一个合法训练帧 1 开始，
+FoundationStereo 深度不加入数据集特定范围、LR/RAFT 筛选或 GT。物理和视觉优化参数全部固定为
+论文/公开代码值，grasp5/grasp3/grasp1 之间没有单独调参。轨迹直接来自 EG 原生 PBD 父粒子
+坐标系，不运行 Shape of Motion。
+
+三套数据 × seeds 0/1/2 的九次正式运行均已完成；下表为算术均值 ± 总体标准差，不挑选最佳运行：
+
+| 数据集 | 分区 | 3D mean / RMSE (mm) ↓ | 2D mean / RMSE (px) ↓ | PSNR (dB) ↑ | SSIM ↑ | LPIPS ↓ |
+|---|---|---:|---:|---:|---:|---:|
+| grasp5 | Reconstruction 7:1 | 41148.397 ± 19541.061 / 44615.404 ± 19895.769 | 87510.372 ± 113921.409 / 485497.950 ± 660396.982 | 9.006 ± 0.008 | 0.0062 ± 0.0005 | 0.8421 ± 0.0002 |
+| grasp5 | Future 80:20 | 55991.091 ± 40324.853 / 56429.869 ± 40105.699 | 18685.905 ± 22026.995 / 48793.754 ± 64523.957 | 9.023 ± 0.000 | 0.0025 ± 0.0000 | 0.8380 ± 0.0000 |
+| grasp3 | Reconstruction 7:1 | 22242.982 ± 11815.215 / 25730.193 ± 13531.498 | 8198.319 ± 5197.794 / 10199.639 ± 7837.416 | 9.050 ± 0.015 | 0.0049 ± 0.0005 | 0.8374 ± 0.0001 |
+| grasp3 | Future 80:20 | 46620.254 ± 25912.195 / 46695.757 ± 25976.670 | 4561.292 ± 1566.874 / 4570.859 ± 1570.665 | 9.031 ± 0.000 | 0.0025 ± 0.0000 | 0.8392 ± 0.0000 |
+| grasp1 | Reconstruction 7:1 | N/A / N/A | N/A / N/A | 9.109 ± 0.001 | 0.0030 ± 0.0004 | 0.8470 ± 0.0001 |
+| grasp1 | Future 80:20 | N/A / N/A | N/A / N/A | 9.169 ± 0.000 | 0.0025 ± 0.0000 | 0.8400 ± 0.0000 |
+
+grasp1 seed 1 在查询帧没有任何位于双目图像内的 EG Gaussian，因此没有模型深度可把10个2D查询
+绑定到 PBD 粒子；该次2D/3D轨迹覆盖率均为0。评测没有读取 GT depth/3D，也没有选择图像外
+Gaussian 来制造有限误差。为避免只平均成功的 seed 0/2 产生选择偏差，只要一个请求运行的轨迹
+指标未定义，grasp1 三次聚合轨迹指标就报告 N/A；渲染指标仍由全部三个 seed 聚合。
+
+九次运行均通过协议、输入隔离和 SHA-256 检查。完整方法边界与 N/A 规则见
+[baseline 文档](baselines/embodied_gaussians_super/README.md)，逐次值、样本标准差和聚合结果见
+[机器可读汇总](outputs/embodied_gaussians_super_joint_v1/summary/summary.json)。
 
 ## 整体方法
 
