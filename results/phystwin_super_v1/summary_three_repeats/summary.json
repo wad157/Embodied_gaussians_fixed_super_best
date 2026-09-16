@@ -1,0 +1,472 @@
+{
+  "schema": "phystwin_super_repeated_evaluation_v1",
+  "protocol": "joint_reconstruction_7to1_future_80to20",
+  "baseline": "PhysTwin",
+  "repeat_ids": [
+    "repeat_01",
+    "repeat_02",
+    "repeat_03"
+  ],
+  "aggregation": "arithmetic mean and population standard deviation",
+  "datasets": {
+    "grasp5": {
+      "baseline": {
+        "reconstruction_7to1_within_train80": {
+          "3d_mean_mm": {
+            "mean": 6.768314957612965,
+            "std_population": 0.9784963062121039,
+            "values": [
+              5.408902440427078,
+              7.67203179183761,
+              7.224010640574205
+            ],
+            "direction": "lower"
+          },
+          "3d_rmse_mm": {
+            "mean": 7.109651730117126,
+            "std_population": 1.0448249317692424,
+            "values": [
+              5.68443335648671,
+              8.159978472990064,
+              7.484543360874605
+            ],
+            "direction": "lower"
+          },
+          "2d_mean_px": {
+            "mean": 93.92522596282724,
+            "std_population": 22.39248532856456,
+            "values": [
+              64.58983194033304,
+              118.9230290695473,
+              98.26281687860136
+            ],
+            "direction": "lower"
+          },
+          "2d_rmse_px": {
+            "mean": 105.3014599271008,
+            "std_population": 26.287571436572215,
+            "values": [
+              71.08116417174327,
+              134.99267043323928,
+              109.83054517631982
+            ],
+            "direction": "lower"
+          },
+          "psnr_db": {
+            "mean": 14.839479820397202,
+            "std_population": 0.7041404773638947,
+            "values": [
+              15.766961897315841,
+              14.689671044598786,
+              14.061806519276978
+            ],
+            "direction": "higher"
+          },
+          "ssim": {
+            "mean": 0.18668022948420712,
+            "std_population": 0.02673272404743062,
+            "values": [
+              0.21871515446239048,
+              0.18804898247536686,
+              0.15327655151486397
+            ],
+            "direction": "higher"
+          },
+          "lpips_alex": {
+            "mean": 0.640981619970666,
+            "std_population": 0.03658469069538923,
+            "values": [
+              0.5899969519426426,
+              0.6588527920345465,
+              0.6740951159348091
+            ],
+            "direction": "lower"
+          }
+        },
+        "future_80to20": {
+          "3d_mean_mm": {
+            "mean": 8.128649445365793,
+            "std_population": 1.5849665808937716,
+            "values": [
+              6.603149518806247,
+              7.469142021821631,
+              10.313656795469504
+            ],
+            "direction": "lower"
+          },
+          "3d_rmse_mm": {
+            "mean": 8.581285170754144,
+            "std_population": 1.5496391639452212,
+            "values": [
+              7.055911392743411,
+              7.981254761246274,
+              10.706689358272747
+            ],
+            "direction": "lower"
+          },
+          "2d_mean_px": {
+            "mean": 129.6927032542485,
+            "std_population": 42.89487627503084,
+            "values": [
+              76.4633449400625,
+              131.10952186584473,
+              181.5052429568383
+            ],
+            "direction": "lower"
+          },
+          "2d_rmse_px": {
+            "mean": 140.83566899830757,
+            "std_population": 48.638703191841394,
+            "values": [
+              81.75847591559321,
+              139.86198743106021,
+              200.88654364826928
+            ],
+            "direction": "lower"
+          },
+          "psnr_db": {
+            "mean": 14.40918648580273,
+            "std_population": 1.0832617108435403,
+            "values": [
+              15.860835036767222,
+              14.107297658981638,
+              13.259426761659334
+            ],
+            "direction": "higher"
+          },
+          "ssim": {
+            "mean": 0.16889119993343402,
+            "std_population": 0.03294122765984845,
+            "values": [
+              0.20739585093946922,
+              0.17234857737397155,
+              0.12692917148686117
+            ],
+            "direction": "higher"
+          },
+          "lpips_alex": {
+            "mean": 0.6625895026933264,
+            "std_population": 0.035120039681659214,
+            "values": [
+              0.6145607015738884,
+              0.6756471027102735,
+              0.6975607037958171
+            ],
+            "direction": "lower"
+          }
+        }
+      },
+      "baseline_reports": [
+        "results/phystwin_super_v1/runs/grasp5/repeat_01/capture/evaluation_results.json",
+        "results/phystwin_super_v1/runs/grasp5/repeat_02/capture/evaluation_results.json",
+        "results/phystwin_super_v1/runs/grasp5/repeat_03/capture/evaluation_results.json"
+      ]
+    },
+    "grasp3": {
+      "baseline": {
+        "reconstruction_7to1_within_train80": {
+          "3d_mean_mm": {
+            "mean": 7.445205228046572,
+            "std_population": 1.3340314163894298,
+            "values": [
+              7.595545067341023,
+              5.74138304980893,
+              8.998687566989767
+            ],
+            "direction": "lower"
+          },
+          "3d_rmse_mm": {
+            "mean": 7.914781428005809,
+            "std_population": 1.3300346135354149,
+            "values": [
+              8.098410763577187,
+              6.201794866144214,
+              9.444138654296026
+            ],
+            "direction": "lower"
+          },
+          "2d_mean_px": {
+            "mean": 138.93534823145185,
+            "std_population": 25.130958056045937,
+            "values": [
+              147.97397045407976,
+              104.64902416183835,
+              164.18305007843745
+            ],
+            "direction": "lower"
+          },
+          "2d_rmse_px": {
+            "mean": 151.67586115949413,
+            "std_population": 27.032311102003426,
+            "values": [
+              161.74607328231065,
+              114.7023474025799,
+              178.57916279359188
+            ],
+            "direction": "lower"
+          },
+          "psnr_db": {
+            "mean": 14.758279538984675,
+            "std_population": 0.1384932286711769,
+            "values": [
+              14.689016556685793,
+              14.95156959764293,
+              14.634252462625302
+            ],
+            "direction": "higher"
+          },
+          "ssim": {
+            "mean": 0.18515375462899078,
+            "std_population": 0.016459039438444675,
+            "values": [
+              0.18556387571321017,
+              0.2051036889858292,
+              0.16479369918793296
+            ],
+            "direction": "higher"
+          },
+          "lpips_alex": {
+            "mean": 0.6460573204377614,
+            "std_population": 0.011531567498561338,
+            "values": [
+              0.647408804455817,
+              0.6313069313044709,
+              0.6594562255529965
+            ],
+            "direction": "lower"
+          }
+        },
+        "future_80to20": {
+          "3d_mean_mm": {
+            "mean": 7.656137456246088,
+            "std_population": 0.9868738476709956,
+            "values": [
+              6.365842001237483,
+              7.8405974197349595,
+              8.76197294776582
+            ],
+            "direction": "lower"
+          },
+          "3d_rmse_mm": {
+            "mean": 8.373553845095673,
+            "std_population": 1.129745881749855,
+            "values": [
+              6.776019344749994,
+              9.192352973615133,
+              9.152289216921895
+            ],
+            "direction": "lower"
+          },
+          "2d_mean_px": {
+            "mean": 137.88403681290873,
+            "std_population": 20.628333512217633,
+            "values": [
+              115.18424383943731,
+              133.36472523943945,
+              165.10314135984942
+            ],
+            "direction": "lower"
+          },
+          "2d_rmse_px": {
+            "mean": 152.40176360448345,
+            "std_population": 18.86291299396749,
+            "values": [
+              128.08923014468746,
+              155.0506769959541,
+              174.06538367280885
+            ],
+            "direction": "lower"
+          },
+          "psnr_db": {
+            "mean": 14.336788020989024,
+            "std_population": 0.5784592641891791,
+            "values": [
+              14.92286906847604,
+              13.549475876755505,
+              14.538019117735528
+            ],
+            "direction": "higher"
+          },
+          "ssim": {
+            "mean": 0.17884305093055583,
+            "std_population": 0.012912655750092974,
+            "values": [
+              0.18353335541327986,
+              0.19178206699090777,
+              0.16121373038747985
+            ],
+            "direction": "higher"
+          },
+          "lpips_alex": {
+            "mean": 0.6560635849580927,
+            "std_population": 0.007858862459169495,
+            "values": [
+              0.6467338585391749,
+              0.6554977950114603,
+              0.6659591013236427
+            ],
+            "direction": "lower"
+          }
+        }
+      },
+      "baseline_reports": [
+        "results/phystwin_super_v1/runs/grasp3/repeat_01/capture/evaluation_results.json",
+        "results/phystwin_super_v1/runs/grasp3/repeat_02/capture/evaluation_results.json",
+        "results/phystwin_super_v1/runs/grasp3/repeat_03/capture/evaluation_results.json"
+      ]
+    },
+    "grasp1": {
+      "baseline": {
+        "reconstruction_7to1_within_train80": {
+          "3d_mean_mm": {
+            "mean": 9.962520125185302,
+            "std_population": 5.469617466363456,
+            "values": [
+              6.10196744036373,
+              17.697723044936236,
+              6.087869890255942
+            ],
+            "direction": "lower"
+          },
+          "3d_rmse_mm": {
+            "mean": 10.735622862291807,
+            "std_population": 6.291475860238104,
+            "values": [
+              6.3018314945511555,
+              19.633096614746435,
+              6.271940477577835
+            ],
+            "direction": "lower"
+          },
+          "2d_mean_px": {
+            "mean": 155.18175060332769,
+            "std_population": 98.08216532475664,
+            "values": [
+              88.0100408463251,
+              293.86821341741654,
+              83.66699754624139
+            ],
+            "direction": "lower"
+          },
+          "2d_rmse_px": {
+            "mean": 171.16073296031377,
+            "std_population": 115.52805717801502,
+            "values": [
+              91.7223662380309,
+              334.52156550312105,
+              87.23826713978923
+            ],
+            "direction": "lower"
+          },
+          "psnr_db": {
+            "mean": 15.212072196787426,
+            "std_population": 1.5738185991770746,
+            "values": [
+              16.32617892618179,
+              12.986357056501141,
+              16.32368060767935
+            ],
+            "direction": "higher"
+          },
+          "ssim": {
+            "mean": 0.21511716579078966,
+            "std_population": 0.014958568726920649,
+            "values": [
+              0.2247059127568066,
+              0.1939924488866131,
+              0.22665313572894932
+            ],
+            "direction": "higher"
+          },
+          "lpips_alex": {
+            "mean": 0.6216770233564309,
+            "std_population": 0.03150666675620025,
+            "values": [
+              0.6007032087891232,
+              0.6662091858454952,
+              0.5981186754346743
+            ],
+            "direction": "lower"
+          }
+        },
+        "future_80to20": {
+          "3d_mean_mm": {
+            "mean": 16.17558772780377,
+            "std_population": 14.428387786163494,
+            "values": [
+              5.998135779356194,
+              36.58038908182535,
+              5.948238322229753
+            ],
+            "direction": "lower"
+          },
+          "3d_rmse_mm": {
+            "mean": 16.244053281928906,
+            "std_population": 14.450072912386753,
+            "values": [
+              6.05701515966509,
+              36.6795116429537,
+              5.995633043167928
+            ],
+            "direction": "lower"
+          },
+          "2d_mean_px": {
+            "mean": 274.0526161474775,
+            "std_population": 257.0948038829107,
+            "values": [
+              94.5319832336071,
+              637.6301417860874,
+              89.99572342273801
+            ],
+            "direction": "lower"
+          },
+          "2d_rmse_px": {
+            "mean": 275.09100831676864,
+            "std_population": 257.4583406127124,
+            "values": [
+              95.44177369332546,
+              639.1815733890269,
+              90.64967786795361
+            ],
+            "direction": "lower"
+          },
+          "psnr_db": {
+            "mean": 14.026313106174106,
+            "std_population": 3.3151271906810402,
+            "values": [
+              16.372478680496798,
+              9.338015850593164,
+              16.368444787432352
+            ],
+            "direction": "higher"
+          },
+          "ssim": {
+            "mean": 0.18790129501870168,
+            "std_population": 0.052498896247723116,
+            "values": [
+              0.22395907493040196,
+              0.11366672437376699,
+              0.22607808575193608
+            ],
+            "direction": "higher"
+          },
+          "lpips_alex": {
+            "mean": 0.645980463276484,
+            "std_population": 0.08443412706591194,
+            "values": [
+              0.5874983051727558,
+              0.7653800727496107,
+              0.5850630119070853
+            ],
+            "direction": "lower"
+          }
+        }
+      },
+      "baseline_reports": [
+        "results/phystwin_super_v1/runs/grasp1/repeat_01/capture/evaluation_results.json",
+        "results/phystwin_super_v1/runs/grasp1/repeat_02/capture/evaluation_results.json",
+        "results/phystwin_super_v1/runs/grasp1/repeat_03/capture/evaluation_results.json"
+      ]
+    }
+  }
+}

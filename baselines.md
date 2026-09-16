@@ -6,7 +6,7 @@
 
 EH-SurGS 的固定版本、三数据集三次结果和双 GPU 命令见 [EH-SurGS SUPER baseline 文档](baselines/eh_surgs_super/README.md)。
 
-PhysTwin 固定版本、原生粒子轨迹选择、运行命令和当前两次均值见
+PhysTwin 固定版本、原生粒子轨迹选择、运行命令和三数据集三次结果见
 [PhysTwin SUPER baseline 文档](baselines/phystwin_super/README.md)。PhysTwin 轨迹直接来自
 其弹簧质点粒子与上游 KNN-LBS，不运行 Shape of Motion。
 

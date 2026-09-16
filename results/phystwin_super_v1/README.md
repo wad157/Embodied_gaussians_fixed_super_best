@@ -1,26 +1,26 @@
 # PhysTwin SUPER results
 
-This package contains the first two completed formal runs (seeds 0 and 1) for each
-SUPER dataset. Values are arithmetic mean ± population standard deviation; no run was
-selected or discarded.
+This package contains all three formal runs (seeds 0, 1, and 2) for each SUPER dataset.
+Values are arithmetic mean ± population standard deviation; no run was selected or
+discarded.
 
 | Dataset | Partition | 3D mean / RMSE (mm) | 2D mean / RMSE (px) | PSNR (dB) | SSIM | LPIPS |
 |---|---|---:|---:|---:|---:|---:|
-| grasp5 | Reconstruction 7:1 | 6.540 ± 1.132 / 6.922 ± 1.238 | 91.756 ± 27.167 / 103.037 ± 31.956 | 15.228 ± 0.539 | 0.2034 ± 0.0153 | 0.6244 ± 0.0344 |
-| grasp5 | Future 80:20 | 7.036 ± 0.433 / 7.519 ± 0.463 | 103.786 ± 27.323 / 110.810 ± 29.052 | 14.984 ± 0.877 | 0.1899 ± 0.0175 | 0.6451 ± 0.0305 |
-| grasp3 | Reconstruction 7:1 | 6.668 ± 0.927 / 7.150 ± 0.948 | 126.311 ± 21.662 / 138.224 ± 23.522 | 14.820 ± 0.131 | 0.1953 ± 0.0098 | 0.6394 ± 0.0081 |
-| grasp3 | Future 80:20 | 7.103 ± 0.737 / 7.984 ± 1.208 | 124.274 ± 9.090 / 141.570 ± 13.481 | 14.236 ± 0.687 | 0.1877 ± 0.0041 | 0.6511 ± 0.0044 |
-| grasp1 | Reconstruction 7:1 | 11.900 ± 5.798 / 12.967 ± 6.666 | 190.939 ± 102.929 / 213.122 ± 121.400 | 14.656 ± 1.670 | 0.2093 ± 0.0154 | 0.6335 ± 0.0328 |
-| grasp1 | Future 80:20 | 21.289 ± 15.291 / 21.368 ± 15.311 | 366.081 ± 271.549 / 367.312 ± 271.870 | 12.855 ± 3.517 | 0.1688 ± 0.0551 | 0.6764 ± 0.0889 |
+| grasp5 | Reconstruction 7:1 | 6.768 ± 0.978 / 7.110 ± 1.045 | 93.925 ± 22.392 / 105.301 ± 26.288 | 14.839 ± 0.704 | 0.1867 ± 0.0267 | 0.6410 ± 0.0366 |
+| grasp5 | Future 80:20 | 8.129 ± 1.585 / 8.581 ± 1.550 | 129.693 ± 42.895 / 140.836 ± 48.639 | 14.409 ± 1.083 | 0.1689 ± 0.0329 | 0.6626 ± 0.0351 |
+| grasp3 | Reconstruction 7:1 | 7.445 ± 1.334 / 7.915 ± 1.330 | 138.935 ± 25.131 / 151.676 ± 27.032 | 14.758 ± 0.138 | 0.1852 ± 0.0165 | 0.6461 ± 0.0115 |
+| grasp3 | Future 80:20 | 7.656 ± 0.987 / 8.374 ± 1.130 | 137.884 ± 20.628 / 152.402 ± 18.863 | 14.337 ± 0.578 | 0.1788 ± 0.0129 | 0.6561 ± 0.0079 |
+| grasp1 | Reconstruction 7:1 | 9.963 ± 5.470 / 10.736 ± 6.291 | 155.182 ± 98.082 / 171.161 ± 115.528 | 15.212 ± 1.574 | 0.2151 ± 0.0150 | 0.6217 ± 0.0315 |
+| grasp1 | Future 80:20 | 16.176 ± 14.428 / 16.244 ± 14.450 | 274.053 ± 257.095 / 275.091 ± 257.458 | 14.026 ± 3.315 | 0.1879 ± 0.0525 | 0.6460 ± 0.0844 |
 
-All six runs have 100% 2D and 3D coverage and pass the ground-truth hash, withheld
+All nine runs have 100% 2D and 3D coverage and pass the ground-truth hash, withheld
 observation, complete track schedule, and exact render partition checks.
 
-- `summary_two_repeats/summary.json`: machine-readable aggregate and both source values.
-- `summary_two_repeats/summary.md`: compact table.
+- `summary_three_repeats/summary.json`: final machine-readable aggregate and all source values.
+- `summary_three_repeats/summary.md`: final compact table.
+- `summary_two_repeats/`: interim historical snapshot published before seed 2 completed.
 - `runs/`: per-run evaluation reports, metadata, protocol audits, and predicted tracks.
 - `SHA256SUMS`: hashes for every published artifact.
 
-The third repeats are still running and are not represented in this partial aggregate.
 See the [adapter documentation](../../baselines/phystwin_super/README.md) for the method
 boundary, trajectory choice, protocol, and reproduction commands.

@@ -66,10 +66,10 @@ Aggregate any explicitly selected repeats without best-run selection:
   --repeats 1 2 --baseline-only
 ```
 
-## Published partial result
+## Published result
 
-Seeds 0 and 1 are complete on grasp5, grasp3, and grasp1. Their arithmetic mean and
-population standard deviation are published in
-[`results/phystwin_super_v1/summary_two_repeats`](../../results/phystwin_super_v1/summary_two_repeats/summary.md).
-This is an interim two-repeat aggregate; repeat 3 is intentionally not imputed or
-selected from the first two runs.
+Seeds 0, 1, and 2 are complete on grasp5, grasp3, and grasp1. Their arithmetic mean
+and population standard deviation are published in
+[`results/phystwin_super_v1/summary_three_repeats`](../../results/phystwin_super_v1/summary_three_repeats/summary.md).
+All nine requested runs are included without best-run selection. The earlier
+two-repeat summary remains in the result package only as an interim historical snapshot.
