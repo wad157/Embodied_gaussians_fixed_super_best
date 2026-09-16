@@ -1,0 +1,426 @@
+{
+  "schema": "phystwin_super_repeated_evaluation_v1",
+  "protocol": "joint_reconstruction_7to1_future_80to20",
+  "baseline": "PhysTwin",
+  "repeat_ids": [
+    "repeat_01",
+    "repeat_02"
+  ],
+  "aggregation": "arithmetic mean and population standard deviation",
+  "datasets": {
+    "grasp5": {
+      "baseline": {
+        "reconstruction_7to1_within_train80": {
+          "3d_mean_mm": {
+            "mean": 6.540467116132344,
+            "std_population": 1.131564675705266,
+            "values": [
+              5.408902440427078,
+              7.67203179183761
+            ],
+            "direction": "lower"
+          },
+          "3d_rmse_mm": {
+            "mean": 6.922205914738386,
+            "std_population": 1.237772558251677,
+            "values": [
+              5.68443335648671,
+              8.159978472990064
+            ],
+            "direction": "lower"
+          },
+          "2d_mean_px": {
+            "mean": 91.75643050494017,
+            "std_population": 27.166598564607128,
+            "values": [
+              64.58983194033304,
+              118.9230290695473
+            ],
+            "direction": "lower"
+          },
+          "2d_rmse_px": {
+            "mean": 103.03691730249128,
+            "std_population": 31.955753130748008,
+            "values": [
+              71.08116417174327,
+              134.99267043323928
+            ],
+            "direction": "lower"
+          },
+          "psnr_db": {
+            "mean": 15.228316470957314,
+            "std_population": 0.5386454263585279,
+            "values": [
+              15.766961897315841,
+              14.689671044598786
+            ],
+            "direction": "higher"
+          },
+          "ssim": {
+            "mean": 0.20338206846887869,
+            "std_population": 0.01533308599351181,
+            "values": [
+              0.21871515446239048,
+              0.18804898247536686
+            ],
+            "direction": "higher"
+          },
+          "lpips_alex": {
+            "mean": 0.6244248719885945,
+            "std_population": 0.034427920045951965,
+            "values": [
+              0.5899969519426426,
+              0.6588527920345465
+            ],
+            "direction": "lower"
+          }
+        },
+        "future_80to20": {
+          "3d_mean_mm": {
+            "mean": 7.036145770313939,
+            "std_population": 0.43299625150769216,
+            "values": [
+              6.603149518806247,
+              7.469142021821631
+            ],
+            "direction": "lower"
+          },
+          "3d_rmse_mm": {
+            "mean": 7.518583076994842,
+            "std_population": 0.46267168425143135,
+            "values": [
+              7.055911392743411,
+              7.981254761246274
+            ],
+            "direction": "lower"
+          },
+          "2d_mean_px": {
+            "mean": 103.7864334029536,
+            "std_population": 27.323088462891114,
+            "values": [
+              76.4633449400625,
+              131.10952186584473
+            ],
+            "direction": "lower"
+          },
+          "2d_rmse_px": {
+            "mean": 110.81023167332671,
+            "std_population": 29.051755757733503,
+            "values": [
+              81.75847591559321,
+              139.86198743106021
+            ],
+            "direction": "lower"
+          },
+          "psnr_db": {
+            "mean": 14.98406634787443,
+            "std_population": 0.8767686888927919,
+            "values": [
+              15.860835036767222,
+              14.107297658981638
+            ],
+            "direction": "higher"
+          },
+          "ssim": {
+            "mean": 0.1898722141567204,
+            "std_population": 0.017523636782748833,
+            "values": [
+              0.20739585093946922,
+              0.17234857737397155
+            ],
+            "direction": "higher"
+          },
+          "lpips_alex": {
+            "mean": 0.645103902142081,
+            "std_population": 0.03054320056819254,
+            "values": [
+              0.6145607015738884,
+              0.6756471027102735
+            ],
+            "direction": "lower"
+          }
+        }
+      },
+      "baseline_reports": [
+        "results/phystwin_super_v1/runs/grasp5/repeat_01/capture/evaluation_results.json",
+        "results/phystwin_super_v1/runs/grasp5/repeat_02/capture/evaluation_results.json"
+      ]
+    },
+    "grasp3": {
+      "baseline": {
+        "reconstruction_7to1_within_train80": {
+          "3d_mean_mm": {
+            "mean": 6.668464058574976,
+            "std_population": 0.9270810087660464,
+            "values": [
+              7.595545067341023,
+              5.74138304980893
+            ],
+            "direction": "lower"
+          },
+          "3d_rmse_mm": {
+            "mean": 7.1501028148607,
+            "std_population": 0.9483079487164865,
+            "values": [
+              8.098410763577187,
+              6.201794866144214
+            ],
+            "direction": "lower"
+          },
+          "2d_mean_px": {
+            "mean": 126.31149730795906,
+            "std_population": 21.662473146120703,
+            "values": [
+              147.97397045407976,
+              104.64902416183835
+            ],
+            "direction": "lower"
+          },
+          "2d_rmse_px": {
+            "mean": 138.22421034244528,
+            "std_population": 23.521862939865372,
+            "values": [
+              161.74607328231065,
+              114.7023474025799
+            ],
+            "direction": "lower"
+          },
+          "psnr_db": {
+            "mean": 14.820293077164362,
+            "std_population": 0.13127652047856841,
+            "values": [
+              14.689016556685793,
+              14.95156959764293
+            ],
+            "direction": "higher"
+          },
+          "ssim": {
+            "mean": 0.1953337823495197,
+            "std_population": 0.009769906636309514,
+            "values": [
+              0.18556387571321017,
+              0.2051036889858292
+            ],
+            "direction": "higher"
+          },
+          "lpips_alex": {
+            "mean": 0.6393578678801439,
+            "std_population": 0.008050936575673073,
+            "values": [
+              0.647408804455817,
+              0.6313069313044709
+            ],
+            "direction": "lower"
+          }
+        },
+        "future_80to20": {
+          "3d_mean_mm": {
+            "mean": 7.103219710486221,
+            "std_population": 0.7373777092487384,
+            "values": [
+              6.365842001237483,
+              7.8405974197349595
+            ],
+            "direction": "lower"
+          },
+          "3d_rmse_mm": {
+            "mean": 7.984186159182563,
+            "std_population": 1.2081668144325697,
+            "values": [
+              6.776019344749994,
+              9.192352973615133
+            ],
+            "direction": "lower"
+          },
+          "2d_mean_px": {
+            "mean": 124.27448453943839,
+            "std_population": 9.090240700001068,
+            "values": [
+              115.18424383943731,
+              133.36472523943945
+            ],
+            "direction": "lower"
+          },
+          "2d_rmse_px": {
+            "mean": 141.56995357032076,
+            "std_population": 13.480723425633315,
+            "values": [
+              128.08923014468746,
+              155.0506769959541
+            ],
+            "direction": "lower"
+          },
+          "psnr_db": {
+            "mean": 14.236172472615772,
+            "std_population": 0.6866965958602673,
+            "values": [
+              14.92286906847604,
+              13.549475876755505
+            ],
+            "direction": "higher"
+          },
+          "ssim": {
+            "mean": 0.18765771120209382,
+            "std_population": 0.004124355788813955,
+            "values": [
+              0.18353335541327986,
+              0.19178206699090777
+            ],
+            "direction": "higher"
+          },
+          "lpips_alex": {
+            "mean": 0.6511158267753177,
+            "std_population": 0.00438196823614273,
+            "values": [
+              0.6467338585391749,
+              0.6554977950114603
+            ],
+            "direction": "lower"
+          }
+        }
+      },
+      "baseline_reports": [
+        "results/phystwin_super_v1/runs/grasp3/repeat_01/capture/evaluation_results.json",
+        "results/phystwin_super_v1/runs/grasp3/repeat_02/capture/evaluation_results.json"
+      ]
+    },
+    "grasp1": {
+      "baseline": {
+        "reconstruction_7to1_within_train80": {
+          "3d_mean_mm": {
+            "mean": 11.899845242649983,
+            "std_population": 5.797877802286253,
+            "values": [
+              6.10196744036373,
+              17.697723044936236
+            ],
+            "direction": "lower"
+          },
+          "3d_rmse_mm": {
+            "mean": 12.967464054648795,
+            "std_population": 6.66563256009764,
+            "values": [
+              6.3018314945511555,
+              19.633096614746435
+            ],
+            "direction": "lower"
+          },
+          "2d_mean_px": {
+            "mean": 190.9391271318708,
+            "std_population": 102.92908628554572,
+            "values": [
+              88.0100408463251,
+              293.86821341741654
+            ],
+            "direction": "lower"
+          },
+          "2d_rmse_px": {
+            "mean": 213.121965870576,
+            "std_population": 121.39959963254508,
+            "values": [
+              91.7223662380309,
+              334.52156550312105
+            ],
+            "direction": "lower"
+          },
+          "psnr_db": {
+            "mean": 14.656267991341466,
+            "std_population": 1.669910934840324,
+            "values": [
+              16.32617892618179,
+              12.986357056501141
+            ],
+            "direction": "higher"
+          },
+          "ssim": {
+            "mean": 0.20934918082170983,
+            "std_population": 0.015356731935096748,
+            "values": [
+              0.2247059127568066,
+              0.1939924488866131
+            ],
+            "direction": "higher"
+          },
+          "lpips_alex": {
+            "mean": 0.6334561973173092,
+            "std_population": 0.03275298852818598,
+            "values": [
+              0.6007032087891232,
+              0.6662091858454952
+            ],
+            "direction": "lower"
+          }
+        },
+        "future_80to20": {
+          "3d_mean_mm": {
+            "mean": 21.289262430590774,
+            "std_population": 15.29112665123458,
+            "values": [
+              5.998135779356194,
+              36.58038908182535
+            ],
+            "direction": "lower"
+          },
+          "3d_rmse_mm": {
+            "mean": 21.368263401309395,
+            "std_population": 15.311248241644305,
+            "values": [
+              6.05701515966509,
+              36.6795116429537
+            ],
+            "direction": "lower"
+          },
+          "2d_mean_px": {
+            "mean": 366.08106250984724,
+            "std_population": 271.54907927624015,
+            "values": [
+              94.5319832336071,
+              637.6301417860874
+            ],
+            "direction": "lower"
+          },
+          "2d_rmse_px": {
+            "mean": 367.31167354117616,
+            "std_population": 271.8698998478507,
+            "values": [
+              95.44177369332546,
+              639.1815733890269
+            ],
+            "direction": "lower"
+          },
+          "psnr_db": {
+            "mean": 12.855247265544982,
+            "std_population": 3.5172314149518167,
+            "values": [
+              16.372478680496798,
+              9.338015850593164
+            ],
+            "direction": "higher"
+          },
+          "ssim": {
+            "mean": 0.16881289965208446,
+            "std_population": 0.05514617527831748,
+            "values": [
+              0.22395907493040196,
+              0.11366672437376699
+            ],
+            "direction": "higher"
+          },
+          "lpips_alex": {
+            "mean": 0.6764391889611833,
+            "std_population": 0.08894088378842746,
+            "values": [
+              0.5874983051727558,
+              0.7653800727496107
+            ],
+            "direction": "lower"
+          }
+        }
+      },
+      "baseline_reports": [
+        "results/phystwin_super_v1/runs/grasp1/repeat_01/capture/evaluation_results.json",
+        "results/phystwin_super_v1/runs/grasp1/repeat_02/capture/evaluation_results.json"
+      ]
+    }
+  }
+}

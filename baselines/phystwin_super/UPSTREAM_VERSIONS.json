@@ -1,0 +1,11 @@
+{
+  "schema": "phystwin_super_upstream_versions_v1",
+  "phystwin": {
+    "url": "https://github.com/jianghanxiao/phystwin",
+    "commit": "81c718790a37e5e0102eb77af2c6edd34a9db25f"
+  },
+  "adapter_version": "phystwin_super_native_particles_v1",
+  "trajectory_source": "native persistent spring-mass particles plus upstream Gaussian KNN-LBS K=16",
+  "shape_of_motion_used": false,
+  "headless_import_patch_sha256": "4ad745d0baf8410672b95817f529bb4d9ac0cfbfe45bc6cb1626d0d08df693b8"
+}

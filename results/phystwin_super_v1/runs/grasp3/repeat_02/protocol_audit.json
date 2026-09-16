@@ -1,0 +1,44 @@
+{
+  "schema": "phystwin_super_protocol_audit_v1",
+  "passed": true,
+  "dataset_key": "grasp3",
+  "frames": 2062,
+  "future_start": 1649,
+  "split": {
+    "definition": "train: t < 1649 and t % 8 != 0; future: t >= 1649",
+    "training_frame_count": 1442,
+    "reconstruction_holdout_count": 207,
+    "future_frame_count": 413,
+    "query_frame": 0,
+    "initialization_frame": 1
+  },
+  "inputs": {
+    "native": "/Media_HDD/jwshan/wad/Embodied_gaussians_fixed_super_best/data/super/grasp3_native",
+    "depth_cache": "/Media_HDD/jwshan/wad/Embodied_gaussians_fixed_super_best/data/super/grasp3_native/endogaussian_foundation_depth_ds3_v1",
+    "depth_cache_exact_legal_schedule": true,
+    "known_control_sha256": "93722430f4e1fce49ff35386173a478bc1c41c4ee69c7cd646194acbce753c21",
+    "robot_surface_sha256": "1a05781391695bbdb7731d37b8e9a7ea6abb2d64c95951a7309f75aa82dd88cf",
+    "pose_uses_image_based_correction": false,
+    "camera_file_sha256": "fd50a153fbde40033c1d8fbf6a46a229b8f12baef5fc6d5d3f217dc10c200704",
+    "ground_truth_sha256": "5783ba17b924ac0b1ed6ad1a01f82ed7fd0fd809fa2109991893ff2e31b9dbd4",
+    "instrument_masks_sha256": "00a2f13ee2469c62df9cc48d3005d40ecb743b178d5a6c32c8c7b8d593271202",
+    "forbidden_during_training": [
+      "ground truth",
+      "frame-0 RGB/depth/mask",
+      "holdout RGB/depth/mask",
+      "future RGB/depth/mask"
+    ]
+  },
+  "phystwin": {
+    "root": "/Media_HDD/jwshan/wad/Embodied_gaussians_fixed_super_best/baselines/PhysTwin",
+    "commit": "81c718790a37e5e0102eb77af2c6edd34a9db25f",
+    "headless_import_patch_sha256": "4ad745d0baf8410672b95817f529bb4d9ac0cfbfe45bc6cb1626d0d08df693b8",
+    "algorithm_source_files_clean": true,
+    "trajectory_source": "native persistent spring-mass particles plus upstream Gaussian KNN-LBS K=16",
+    "shape_of_motion_used": false
+  },
+  "tracker": {
+    "name": "scaled_offline.pth",
+    "checkpoint_sha256": "2670d4562ed69326dda775a26e54883925cd11b6fc9b24cb7aa9f8078bce7834"
+  }
+}

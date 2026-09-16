@@ -12,6 +12,7 @@
 [EndoGaussian baseline 与结果](baselines.md) ·
 [EndoGaussian 机器可读结果](results/endogaussian_super_v1/) ·
 [EH-SurGS 三数据集三次结果](outputs/eh_surgs_super_joint_v1/summary/summary.md) ·
+[PhysTwin SUPER 两次均值（第三次运行中）](results/phystwin_super_v1/README.md) ·
 [Embodied Gaussians EG-Soft 三数据集三次结果](outputs/embodied_gaussians_super_joint_v1/summary/summary.md) ·
 [Embodied Gaussians EG-Soft 适配说明](baselines/embodied_gaussians_super/README.md) ·
 [当前 f1/f2 结果](CURRENT_F1_F2_EVALUATION.md) ·

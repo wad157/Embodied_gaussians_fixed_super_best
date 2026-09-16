@@ -1,0 +1,70 @@
+{
+  "schema": "super_tissue_physics_benchmark_v1",
+  "protocol": "joint_reconstruction_7to1_future_80to20",
+  "ground_truth": "/Media_HDD/jwshan/wad/Embodied_gaussians_fixed_super_best/data/super/evaluation_v1/manual_tissue_tracks_10/ground_truth_2d3d_v1.npz",
+  "ground_truth_sha256": "5f61da5fb59fafb388f9798be3fc572694c31bfd734b08783185f7cc365e2b57",
+  "trajectory_binding": "PhysTwin native spring-mass particles plus upstream KNN-LBS",
+  "trajectory_query_frame": 0,
+  "reconstruction_split": {
+    "ratio": [
+      7,
+      1
+    ],
+    "test_rule": "full video frame_index % 8 == 0",
+    "test_end_exclusive": 1152
+  },
+  "future_split": {
+    "train_end_inclusive": 1151,
+    "test_start_inclusive": 1152,
+    "ground_truth_formal_test_start": 1152
+  },
+  "render_scale": 0.5,
+  "render_camera": "stereo_left",
+  "render_mask": "all pixels except the frozen SurgicalSAM2 instrument mask",
+  "capture_renders": true,
+  "baseline": {
+    "method": "PhysTwin",
+    "adapter_version": "phystwin_super_native_particles_v1",
+    "upstream_commit": "81c718790a37e5e0102eb77af2c6edd34a9db25f",
+    "shape_of_motion_used": false,
+    "initialization_frame": 1,
+    "future_behavior": "native spring-mass open loop with known raw robot control",
+    "ground_truth_usage": "frame-0 2D queries after physics/appearance freeze and downstream scoring only",
+    "future_observations_used": false,
+    "track_report": {
+      "decoder": "PhysTwin native particle KNN-LBS (K=16)",
+      "query_point_count": 10,
+      "query_raster_coverage_count": 10,
+      "query_projected_gaussian_fallback_count": 0,
+      "fallback_gaussian_ids": [
+        -1,
+        -1,
+        -1,
+        -1,
+        -1,
+        -1,
+        -1,
+        -1,
+        -1,
+        -1
+      ],
+      "fallback_pixel_distances": [
+        NaN,
+        NaN,
+        NaN,
+        NaN,
+        NaN,
+        NaN,
+        NaN,
+        NaN,
+        NaN,
+        NaN
+      ],
+      "initial_query_reprojection_max_px": 0.0001220703125,
+      "query_gt_depth_used": false,
+      "query_gt_3d_used": false,
+      "alignment": "none",
+      "lbs_neighbours": 16
+    }
+  }
+}
