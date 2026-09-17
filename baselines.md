@@ -1,6 +1,6 @@
 # Baseline 适配与测评
 
-本文固定 `Embodied_gaussians_fixed_super_best` 上的 baseline 适配口径。当前包含 EndoGaussian、EH-SurGS 与 PhysTwin。所有正式结果必须先通过对应协议审计；旧 SUPER 真值、旧测评点、旧留出相位以及主方法的 AllTracker 中间结果均不得作为 baseline 输入。
+本文固定 `Embodied_gaussians_fixed_super_best` 上的 baseline 适配口径。当前包含 EndoGaussian、EH-SurGS、PhysTwin 与 TRACE。所有正式结果必须先通过对应协议审计；旧 SUPER 真值、旧测评点、旧留出相位以及主方法的 AllTracker 中间结果均不得作为 baseline 输入。
 
 当前适配版本为 `endogaussian_super_v2_noninstrument_mask`。早期组织专用 mask 的调试结果不进入正式汇总。
 
@@ -9,6 +9,10 @@ EH-SurGS 的固定版本、三数据集三次结果和双 GPU 命令见 [EH-SurG
 PhysTwin 固定版本、原生粒子轨迹选择、运行命令和三数据集三次结果见
 [PhysTwin SUPER baseline 文档](baselines/phystwin_super/README.md)。PhysTwin 轨迹直接来自
 其弹簧质点粒子与上游 KNN-LBS，不运行 Shape of Motion。
+
+TRACE 固定版本、无外部 PSM 的 RGB-only 输入边界、完整非中心主点相机兼容层、运行命令和
+三数据集三次结果见 [TRACE SUPER baseline 文档](baselines/trace_super/README.md)。官方 TRACE
+源码保持未修改；适配器不依赖 Shape of Motion，也不做后验对齐或纠正。
 
 ## EndoGaussian 版本
 

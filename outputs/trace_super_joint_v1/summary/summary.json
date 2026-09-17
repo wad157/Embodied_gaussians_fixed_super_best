@@ -1,0 +1,478 @@
+{
+  "adapter_version": "trace_super_v1_rgb_only_full_k",
+  "aggregate": {
+    "grasp1": {
+      "future_80to20": {
+        "2d_mean_px": {
+          "direction": "lower",
+          "mean": 31.960363321895745,
+          "std_population": 0.7754289874699358,
+          "values": [
+            31.059648003689077,
+            32.95244887263276,
+            31.868993089365404
+          ]
+        },
+        "2d_rmse_px": {
+          "direction": "lower",
+          "mean": 35.583492053478984,
+          "std_population": 0.9665721311516021,
+          "values": [
+            34.81491083223792,
+            36.94673859101611,
+            34.988826737182926
+          ]
+        },
+        "3d_mean_mm": {
+          "direction": "lower",
+          "mean": 23.32344595397021,
+          "std_population": 4.576791012219919,
+          "values": [
+            27.91828576388747,
+            17.078101366953273,
+            24.973950731069888
+          ]
+        },
+        "3d_rmse_mm": {
+          "direction": "lower",
+          "mean": 24.608366832632683,
+          "std_population": 4.540109021382315,
+          "values": [
+            29.220850119033624,
+            18.43396886651045,
+            26.170281512353974
+          ]
+        },
+        "lpips_alex": {
+          "direction": "lower",
+          "mean": 0.2733131189621303,
+          "std_population": 0.007778665399962423,
+          "values": [
+            0.2679456688383955,
+            0.2843127512194739,
+            0.26768093682852145
+          ]
+        },
+        "psnr_db": {
+          "direction": "higher",
+          "mean": 26.307099933707622,
+          "std_population": 0.22663566391168063,
+          "values": [
+            26.31118091344132,
+            26.027511077896488,
+            26.582607809785056
+          ]
+        },
+        "ssim": {
+          "direction": "higher",
+          "mean": 0.8347741873359755,
+          "std_population": 0.008496145186752147,
+          "values": [
+            0.8326697943468582,
+            0.8255816109115247,
+            0.8460711567495439
+          ]
+        }
+      },
+      "reconstruction_7to1_within_train80": {
+        "2d_mean_px": {
+          "direction": "lower",
+          "mean": 25.778941986458523,
+          "std_population": 0.6214171586128342,
+          "values": [
+            25.007296788302206,
+            26.5289921155909,
+            25.80053705548247
+          ]
+        },
+        "2d_rmse_px": {
+          "direction": "lower",
+          "mean": 40.040419224607,
+          "std_population": 0.7979642089287385,
+          "values": [
+            39.49383338630093,
+            41.16872866940111,
+            39.45869561811896
+          ]
+        },
+        "3d_mean_mm": {
+          "direction": "lower",
+          "mean": 23.046018940762483,
+          "std_population": 4.691664720214332,
+          "values": [
+            27.81296201782035,
+            16.665702766095777,
+            24.659392038371326
+          ]
+        },
+        "3d_rmse_mm": {
+          "direction": "lower",
+          "mean": 24.383609911911236,
+          "std_population": 4.646228367981451,
+          "values": [
+            29.164005744182628,
+            18.089309174863278,
+            25.89751481668781
+          ]
+        },
+        "lpips_alex": {
+          "direction": "lower",
+          "mean": 0.259607086531812,
+          "std_population": 0.006851398101313229,
+          "values": [
+            0.25470247985065125,
+            0.26929617844822856,
+            0.25482260129655626
+          ]
+        },
+        "psnr_db": {
+          "direction": "higher",
+          "mean": 27.39067141067623,
+          "std_population": 0.16091107655144687,
+          "values": [
+            27.420394888492904,
+            27.180423009005867,
+            27.57119633452991
+          ]
+        },
+        "ssim": {
+          "direction": "higher",
+          "mean": 0.8571118631253428,
+          "std_population": 0.005138316945769157,
+          "values": [
+            0.8566646816611573,
+            0.8510542538839961,
+            0.8636166538308748
+          ]
+        }
+      }
+    },
+    "grasp3": {
+      "future_80to20": {
+        "2d_mean_px": {
+          "direction": "lower",
+          "mean": 16.414214619542612,
+          "std_population": 0.8111519966490434,
+          "values": [
+            16.183225979588247,
+            15.556603329290043,
+            17.502814549749548
+          ]
+        },
+        "2d_rmse_px": {
+          "direction": "lower",
+          "mean": 18.64486776377805,
+          "std_population": 0.682874054176121,
+          "values": [
+            18.128757622244034,
+            18.196029488873513,
+            19.609816180216594
+          ]
+        },
+        "3d_mean_mm": {
+          "direction": "lower",
+          "mean": 21.314095618965272,
+          "std_population": 0.8846003208973136,
+          "values": [
+            21.12858575684103,
+            22.478282377018,
+            20.33541872303679
+          ]
+        },
+        "3d_rmse_mm": {
+          "direction": "lower",
+          "mean": 23.3547332055801,
+          "std_population": 0.7282033537489749,
+          "values": [
+            23.51975584885911,
+            24.15256035976724,
+            22.39188340811394
+          ]
+        },
+        "lpips_alex": {
+          "direction": "lower",
+          "mean": 0.2868819118652544,
+          "std_population": 0.00350878359434282,
+          "values": [
+            0.2918199632343888,
+            0.2839897077611803,
+            0.28483606460019406
+          ]
+        },
+        "psnr_db": {
+          "direction": "higher",
+          "mean": 25.026412473215697,
+          "std_population": 0.10296005467508819,
+          "values": [
+            25.02101638277489,
+            25.155123696096265,
+            24.90309734077594
+          ]
+        },
+        "ssim": {
+          "direction": "higher",
+          "mean": 0.837597691454745,
+          "std_population": 0.004382813194166641,
+          "values": [
+            0.8361937452748093,
+            0.843527979625628,
+            0.8330713494637977
+          ]
+        }
+      },
+      "reconstruction_7to1_within_train80": {
+        "2d_mean_px": {
+          "direction": "lower",
+          "mean": 19.647763076143722,
+          "std_population": 0.6988634434584303,
+          "values": [
+            20.214532078838065,
+            18.663169018321096,
+            20.065588131272012
+          ]
+        },
+        "2d_rmse_px": {
+          "direction": "lower",
+          "mean": 28.20763341547398,
+          "std_population": 0.8217325975773963,
+          "values": [
+            29.002745123172918,
+            27.07610568062906,
+            28.54404944261996
+          ]
+        },
+        "3d_mean_mm": {
+          "direction": "lower",
+          "mean": 20.650789934711252,
+          "std_population": 0.9593329273490648,
+          "values": [
+            20.4653175037709,
+            21.907433140135947,
+            19.5796191602269
+          ]
+        },
+        "3d_rmse_mm": {
+          "direction": "lower",
+          "mean": 22.657010452301744,
+          "std_population": 0.8267819542604182,
+          "values": [
+            22.99195838037029,
+            23.459696276110662,
+            21.51937670042427
+          ]
+        },
+        "lpips_alex": {
+          "direction": "lower",
+          "mean": 0.25119039238747,
+          "std_population": 0.0051756111275839565,
+          "values": [
+            0.25816587095963206,
+            0.2457823797268568,
+            0.2496229264759211
+          ]
+        },
+        "psnr_db": {
+          "direction": "higher",
+          "mean": 27.58646022396921,
+          "std_population": 0.16203357402130794,
+          "values": [
+            27.653674932124645,
+            27.742573601285986,
+            27.363132138496994
+          ]
+        },
+        "ssim": {
+          "direction": "higher",
+          "mean": 0.8645403853553121,
+          "std_population": 0.004063333211905182,
+          "values": [
+            0.8631330192952916,
+            0.870069056029481,
+            0.8604190807411636
+          ]
+        }
+      }
+    },
+    "grasp5": {
+      "future_80to20": {
+        "2d_mean_px": {
+          "direction": "lower",
+          "mean": 26.398502962691808,
+          "std_population": 3.9589505563515686,
+          "values": [
+            31.32985343164013,
+            26.22875263460221,
+            21.636902821833086
+          ]
+        },
+        "2d_rmse_px": {
+          "direction": "lower",
+          "mean": 29.59663091906354,
+          "std_population": 4.506588286357886,
+          "values": [
+            35.211782451751276,
+            29.399909787283434,
+            24.178200518155908
+          ]
+        },
+        "3d_mean_mm": {
+          "direction": "lower",
+          "mean": 23.325032418373453,
+          "std_population": 1.4818570408367542,
+          "values": [
+            22.02423864434804,
+            22.552473894170216,
+            25.398384716602102
+          ]
+        },
+        "3d_rmse_mm": {
+          "direction": "lower",
+          "mean": 25.41042527341145,
+          "std_population": 1.2706384632398118,
+          "values": [
+            24.767550816351694,
+            24.27865312929686,
+            27.1850718745858
+          ]
+        },
+        "lpips_alex": {
+          "direction": "lower",
+          "mean": 0.29114212478614515,
+          "std_population": 0.0055670068705489075,
+          "values": [
+            0.29802277787692016,
+            0.291015377578636,
+            0.2843882189028793
+          ]
+        },
+        "psnr_db": {
+          "direction": "higher",
+          "mean": 25.714956635692356,
+          "std_population": 0.21100149014905512,
+          "values": [
+            25.517062431106364,
+            25.620484876156567,
+            26.00732259981413
+          ]
+        },
+        "ssim": {
+          "direction": "higher",
+          "mean": 0.8165411926392051,
+          "std_population": 0.003438903834739735,
+          "values": [
+            0.8123453228423992,
+            0.8165095508512523,
+            0.820768704223964
+          ]
+        }
+      },
+      "reconstruction_7to1_within_train80": {
+        "2d_mean_px": {
+          "direction": "lower",
+          "mean": 20.49252522944668,
+          "std_population": 0.4471683353266219,
+          "values": [
+            20.639250064558453,
+            20.95188520418273,
+            19.886440419598863
+          ]
+        },
+        "2d_rmse_px": {
+          "direction": "lower",
+          "mean": 29.90650156998423,
+          "std_population": 0.7486788477320254,
+          "values": [
+            30.93143823135816,
+            29.62405205524669,
+            29.16401442334784
+          ]
+        },
+        "3d_mean_mm": {
+          "direction": "lower",
+          "mean": 23.36445945350275,
+          "std_population": 1.1802540778409059,
+          "values": [
+            22.45753489540355,
+            22.604408066857744,
+            25.031435398246956
+          ]
+        },
+        "3d_rmse_mm": {
+          "direction": "lower",
+          "mean": 25.50143933582542,
+          "std_population": 1.0042519838969248,
+          "values": [
+            25.236637245665882,
+            24.425455938549728,
+            26.84222482326065
+          ]
+        },
+        "lpips_alex": {
+          "direction": "lower",
+          "mean": 0.25343784831326316,
+          "std_population": 0.0036169836170087915,
+          "values": [
+            0.25060580981274444,
+            0.2511648942405979,
+            0.2585428408864472
+          ]
+        },
+        "psnr_db": {
+          "direction": "higher",
+          "mean": 27.62323629770668,
+          "std_population": 0.13159245366932526,
+          "values": [
+            27.80911732888134,
+            27.522482813339543,
+            27.538108750899156
+          ]
+        },
+        "ssim": {
+          "direction": "higher",
+          "mean": 0.8664500791993405,
+          "std_population": 0.0026445349362610713,
+          "values": [
+            0.8697814274993207,
+            0.8662564568221569,
+            0.8633123532765441
+          ]
+        }
+      }
+    }
+  },
+  "method": "official TRACE core + full-K RGB-only SUPER adapter",
+  "protocol": {
+    "aggregation": "arithmetic mean and population standard deviation; no best-run selection",
+    "alignment": "none",
+    "evaluation": "unchanged SUPER 10-point and masked rendering scorer",
+    "forbidden": "PSM, depth, masks, GT trajectories, held-out/future RGB",
+    "future": "native TRACE dynamics; no future observations/control",
+    "reconstruction": "stride=8 phase=0 held-out interpolation",
+    "seeds": [
+      0,
+      1,
+      2
+    ],
+    "training": "legal first-80% non-holdout stereo-left RGB and complete calibrated camera only"
+  },
+  "raw_reports": {
+    "grasp1": {
+      "repeat_01": "/Media_HDD/jwshan/wad/Embodied_gaussians_fixed_super_best/outputs/trace_super_joint_v1/grasp1/repeat_01/capture/evaluation_results.json",
+      "repeat_02": "/Media_HDD/jwshan/wad/Embodied_gaussians_fixed_super_best/outputs/trace_super_joint_v1/grasp1/repeat_02/capture/evaluation_results.json",
+      "repeat_03": "/Media_HDD/jwshan/wad/Embodied_gaussians_fixed_super_best/outputs/trace_super_joint_v1/grasp1/repeat_03/capture/evaluation_results.json"
+    },
+    "grasp3": {
+      "repeat_01": "/Media_HDD/jwshan/wad/Embodied_gaussians_fixed_super_best/outputs/trace_super_joint_v1/grasp3/repeat_01/capture/evaluation_results.json",
+      "repeat_02": "/Media_HDD/jwshan/wad/Embodied_gaussians_fixed_super_best/outputs/trace_super_joint_v1/grasp3/repeat_02/capture/evaluation_results.json",
+      "repeat_03": "/Media_HDD/jwshan/wad/Embodied_gaussians_fixed_super_best/outputs/trace_super_joint_v1/grasp3/repeat_03/capture/evaluation_results.json"
+    },
+    "grasp5": {
+      "repeat_01": "/Media_HDD/jwshan/wad/Embodied_gaussians_fixed_super_best/outputs/trace_super_joint_v1/grasp5/repeat_01/capture/evaluation_results.json",
+      "repeat_02": "/Media_HDD/jwshan/wad/Embodied_gaussians_fixed_super_best/outputs/trace_super_joint_v1/grasp5/repeat_02/capture/evaluation_results.json",
+      "repeat_03": "/Media_HDD/jwshan/wad/Embodied_gaussians_fixed_super_best/outputs/trace_super_joint_v1/grasp5/repeat_03/capture/evaluation_results.json"
+    }
+  },
+  "schema": "trace_super_three_datasets_three_repeats_v1",
+  "trace_commit": "a4597585bc0e56c56922abe75be9198eb119c95a",
+  "trajectory_decoder_version": "query_anchored_gaussian_displacement_v1"
+}
